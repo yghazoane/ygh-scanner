@@ -426,9 +426,11 @@ function render(){
   const list = $("#list"), empty = $("#emptyBox");
   $("#count").textContent = d ? `${rs.length} ${rs.length===1?"سهم":"أسهم"} تطابق الفلاتر` : "—";
   $("#pricenote").textContent = d && d.meta.last_close_date ? `الأسعار المعروضة هي إغلاق الجلسة الرسمية يوم ${closeDate(d.meta.last_close_date)}.` +
-    (d.meta.extended_session ? ` أسعار ${EXT_NAME[d.meta.extended_session]} تظهر أسفل كل سهم.` : "") : "";
+    (d.meta.extended_session ? (d.meta.extended_count
+      ? ` الأسهم التي جرى عليها تداول ${EXT_IN[d.meta.extended_session]} يظهر سعرها أسفلها.`
+      : ` لم يجرِ تداول فعلي ${EXT_IN[d.meta.extended_session]} على الأسهم المؤهلة حتى وقت المسح.`) : "") : "";
   $("#tfnote").textContent = d ? `من ${d.meta.scanned} سهماً تم فحصها` +
-    (d.meta.extended_session ? ` • حركة ${EXT_NAME[d.meta.extended_session]} لـ ${d.meta.extended_count}` : "") : "";
+    (d.meta.extended_session && d.meta.extended_count ? ` • حركة ${EXT_NAME[d.meta.extended_session]} لـ ${d.meta.extended_count}` : "") : "";
   list.innerHTML = rs.slice(0, state.shown).map(rowHTML).join("");
   list.hidden = rs.length===0;
   $("#more").hidden = rs.length <= state.shown;
