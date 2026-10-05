@@ -97,6 +97,7 @@ select{flex:0 0 auto;width:36%;max-width:180px;background:var(--surface);border:
 .chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 .resultline{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:2px 12px;margin:2px 4px 8px;font-size:14px}
 .resultline b{font-size:16px}
+.pricenote{margin:-4px 4px 10px;font-size:12px;color:var(--muted)}
 .resultline span{color:var(--muted);font-size:12px}
 
 /* قائمة الأسهم */
@@ -246,6 +247,7 @@ canvas{width:100%;height:280px;display:block;touch-action:pan-y}
   </div>
 
   <div class="resultline"><b id="count">—</b><span id="tfnote"></span></div>
+  <p class="pricenote" id="pricenote"></p>
   <ul class="list" id="list"></ul>
   <div id="emptyBox"></div>
   <button class="more" id="more" hidden>عرض المزيد</button>
@@ -257,7 +259,7 @@ canvas{width:100%;height:280px;display:block;touch-action:pan-y}
 </section>
 
 <script>
-const SCHEDULE_UTC = [[12, 45], [17, 40], [18, 40], [21, 15]];   // نفس مواعيد scan.yml
+const SCHEDULE_UTC = [[6, 5], [12, 45], [17, 40], [18, 40], [21, 15]];   // نفس مواعيد scan.yml
 const PAGE = 40;
 const COUNTRIES = {
   "China":["🇨🇳","الصين",true], "Hong Kong":["🇭🇰","هونغ كونغ",true], "Taiwan":["🇹🇼","تايوان"],
@@ -321,7 +323,11 @@ function distToZone(r){
   if(p>hi) return (p-hi)/hi; if(p<lo) return (p-lo)/lo; return 0;
 }
 
-const EXT_NAME = {pre:"قبل الافتتاح", post:"بعد الإغلاق"};
+const EXT_NAME = {pre:"قبل الافتتاح", post:"بعد الإغلاق", night:"التداول الليلي"};
+const EXT_IN = {pre:"قبل الافتتاح", post:"بعد الإغلاق", night:"في التداول الليلي"};
+const EXT_TITLE = {pre:"الحركة قبل الافتتاح", post:"الحركة بعد الإغلاق", night:"حركة التداول الليلي"};
+const dateFmt = new Intl.DateTimeFormat("ar",{weekday:"long",day:"numeric",month:"long",numberingSystem:"latn",calendar:"gregory",timeZone:"UTC"});
+const closeDate = s => s ? dateFmt.format(new Date(s+"T12:00:00Z")) : "";
 const fmtX = x => "×" + (x>=10 ? Math.round(x) : x.toFixed(1));
 function rvolLabel(x){
   if(x==null) return "لا توجد بيانات كافية للمقارنة";
@@ -411,6 +417,8 @@ function render(){
   const rs = rows();
   const list = $("#list"), empty = $("#emptyBox");
   $("#count").textContent = d ? `${rs.length} ${rs.length===1?"سهم":"أسهم"} تطابق الفلاتر` : "—";
+  $("#pricenote").textContent = d && d.meta.last_close_date ? `الأسعار المعروضة هي إغلاق الجلسة الرسمية يوم ${closeDate(d.meta.last_close_date)}.` +
+    (d.meta.extended_session ? ` أسعار ${EXT_NAME[d.meta.extended_session]} تظهر أسفل كل سهم.` : "") : "";
   $("#tfnote").textContent = d ? `من ${d.meta.scanned} سهماً تم فحصها` +
     (d.meta.extended_session ? ` • حركة ${EXT_NAME[d.meta.extended_session]} لـ ${d.meta.extended_count}` : "") : "";
   list.innerHTML = rs.slice(0, state.shown).map(rowHTML).join("");
@@ -532,7 +540,8 @@ function openSheet(sym, push=true){
       <div class="hero">
         <div><span class="pill ${r.status}">${r.status_label}</span>
           <div class="big" style="margin-top:10px">${Math.round(r.score)}<small> / 100</small></div></div>
-        <div class="px"><b>$${fmtP(r.price)}</b><span class="chg ${r.change_pct>=0?"up":"down"}">${fmtPct(r.change_pct)}</span></div>
+        <div class="px"><b>$${fmtP(r.price)}</b><span class="chg ${r.change_pct>=0?"up":"down"}">${fmtPct(r.change_pct)}</span>
+          <small style="display:block;color:var(--muted);font-size:11.5px">${state.tf==="4h"?"إغلاق آخر شمعة مكتملة":"إغلاق الجلسة الرسمية"}</small></div>
       </div>
       ${stripHTML(r,true)}
       <div class="legend"><span>الشروط الفنية ${+techPts.toFixed(1)} / 70</span><span>شروط البيانات ${+dataPts.toFixed(1)} / 30</span></div>
@@ -541,7 +550,7 @@ function openSheet(sym, push=true){
     ${r.gated?`<div class="panel warn"><h2>بعيد عن الدعم</h2><p class="sub" style="margin:0">درجة السهم تؤهله لحالة أعلى، لكن المنهج يشترط أن يكون في مرحلة اختبار الدعم أو إعادة اختبار ناجحة، فبقي في المراقبة المبكرة.</p></div>`:""}
 
     ${r.ext ? (() => {
-      const e = r.ext, w = extWarn(r), name = EXT_NAME[e.session];
+      const e = r.ext, w = extWarn(r), name = EXT_IN[e.session];
       const z = r.support_zone;
       const nd = z ? (e.price>z[1] ? (e.price-z[1])/z[1] : e.price<z[0] ? (e.price-z[0])/z[0] : 0) : null;
       const msg = w==="below" ? `السعر ${name} تحت منطقة الدعم، فقد يُكسر الدعم عند الافتتاح. انتظر عودة السعر فوق المنطقة قبل أي قرار.`
@@ -551,8 +560,8 @@ function openSheet(sym, push=true){
         : e.gap_pct >= 5 ? `فجوة صعود واضحة والسعر ما زال تحت المقاومة. انتبه أن الدخول بعيداً عن الدعم يرفع المخاطرة.`
         : `الحركة ${name} محدودة، والتقييم الفني ما زال صالحاً كما هو.`;
       return `<div class="panel ${w?"warn":""}">
-        <h2>الحركة ${name}</h2>
-        <p class="sub">آخر سعر عند ${e.time_ny} بتوقيت نيويورك، مقارنة بإغلاق <span class="num">${fmtP(e.ref_close)}</span>. لا تدخل في حساب الدرجة.</p>
+        <h2>${EXT_TITLE[e.session]}</h2>
+        <p class="sub">آخر سعر عند ${e.time_ny} بتوقيت نيويورك، مقارنة بإغلاق يوم ${closeDate(e.ref_date)} <span class="num">${fmtP(e.ref_close)}</span>. لا تدخل في حساب الدرجة.</p>
         <div class="grid2">
           <div class="kv"><span>السعر</span><b class="num">$${fmtP(e.price)}</b></div>
           <div class="kv"><span>الفجوة</span><b class="num ${e.gap_pct>=0?"up":"down"}">${fmtPct(e.gap_pct)}</b></div>
@@ -561,6 +570,7 @@ function openSheet(sym, push=true){
         </div>
         <p class="sub" style="margin:10px 0 0">الفوليوم <span class="num">${human(e.volume)}</span> سهم حتى الآن، مقابل متوسط <span class="num">${human(e.avg_volume)}</span> في نفس الوقت خلال آخر ${e.days} أيام تداول.</p>
         <p class="sub" style="margin:8px 0 0;color:var(--ink)">${msg}</p>
+        ${e.session==="night"?`<p class="sub" style="margin:8px 0 0">التداول الليلي يجري على منصة واحدة (Blue Ocean) وسيولته محدودة عادة، فقد يتغير السعر كثيراً عند بدء ما قبل الافتتاح الساعة 4:00 بتوقيت نيويورك.</p>`:""}
       </div>`;
     })() : ""}
 
