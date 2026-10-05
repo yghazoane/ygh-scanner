@@ -376,6 +376,8 @@ function extWarn(r){
 }
 
 const MIN_RR = 2;
+const VERY_LOW_FLOAT = 1e6;
+const lowFloat = r => r.float!=null && r.float < ((state.data&&state.data.meta.very_low_float)||VERY_LOW_FLOAT);
 function rrClass(x){ return x==null ? "" : x>=MIN_RR ? "good" : x>=1.5 ? "mid" : "bad"; }
 const rrText = x => x==null ? "—" : "1:" + (x>=10 ? Math.round(x) : x.toFixed(2).replace(/0$/,""));
 
@@ -421,6 +423,7 @@ function rowHTML(r){
       <div style="min-width:0">
         <div class="sym">${flagHTML(f)}<b>${r.symbol}</b>
           ${f&&f[2]?`<span class="tag">سهم ${f[1]==="الصين"?"صيني":"هونغ كونغ"}</span>`:""}
+          ${lowFloat(r)?`<span class="tag" style="background:color-mix(in srgb,var(--down) 12%,transparent);color:var(--down)" title="فلوت أقل من مليون سهم: عرضة لتحركات حادة وتلاعب">فلوت منخفض جداً</span>`:""}
           ${state.favs.has(r.symbol)?`<span class="star" aria-label="مفضل">★</span>`:""}</div>
         <div class="name">${r.name||""}</div>
       </div>
@@ -595,8 +598,10 @@ function openSheet(sym, push=true){
           <small style="display:block;color:var(--muted);font-size:11.5px">إغلاق الجلسة الرسمية</small></div>
       </div>
       ${stripHTML(r,true)}
-      <div class="legend"><span>الشروط الفنية ${+techPts.toFixed(1)} / 70</span><span>شروط البيانات ${+dataPts.toFixed(1)} / 30</span></div>
+      <div class="legend"><span>الشروط الفنية ${+techPts.toFixed(1)} / ${tech.reduce((a,c)=>a+c.weight,0)}</span><span>شروط البيانات ${+dataPts.toFixed(1)} / ${data.reduce((a,c)=>a+c.weight,0)}</span></div>
     </div>
+
+    ${lowFloat(r)?`<div class="panel warn"><h2>فلوت منخفض جداً</h2><p class="sub" style="margin:0">عدد الأسهم المتاحة للتداول أقل من مليون (<span class="num">${human(r.float)}</span>). مثل هذه الأسهم يسهل تحريكها بمبالغ صغيرة، فتتحرك بعنف في الاتجاهين، وقد تفتح بفجوة تتجاوز وقفك فتكون الخسارة أكبر من المخطط. قلّل حجم الصفقة إن دخلت.</p></div>`:""}
 
     ${r.gated?(r.gate_reason==="rr"
       ? `<div class="panel warn"><h2>العائد لا يستحق المخاطرة</h2><p class="sub" style="margin:0">درجة السهم تؤهله لحالة أعلى، لكن المسافة إلى الهدف أقل من ضعف المسافة إلى الوقف بسعر الدخول الحالي، فبقي في المراقبة المبكرة. قد يصبح مناسباً إذا عاد السعر قرب الدعم.</p></div>`
@@ -761,13 +766,19 @@ async function openBacktest(push=true){
       <span style="text-align:left"><b class="num" style="font-weight:600">${v(st.mean)}</b><small>صاعد <span class="num">${st.win}%</span></small></span></div>`;
   };
   const edge = sg.d10 && sg.d10.n && base.n ? (sg.d10.mean - base.mean) : null;
-  const verdict = !sim.trades ? "لا توجد صفقات كافية للحكم بعد."
-    : sim.avg_r > 0.15 && edge > 0 ? "النتائج إيجابية: إشارات المنهج حققت متوسط ربح بالمخاطرة، وتفوقت على متوسط السوق في نفس الأسهم. ما زالت تحتاج حذراً بسبب القيود المذكورة أدناه."
-    : sim.avg_r > 0 ? "النتائج متواضعة: متوسط الصفقات موجب لكن بفارق صغير، فلا تكفي للاعتماد على المنهج وحده."
-    : "النتائج سلبية: إشارات المنهج لم تحقق ربحاً في المتوسط خلال هذه الفترة. يحتاج المنهج مراجعة قبل الاعتماد عليه بأموال حقيقية.";
+  const hv = (b.halves||[]).map(h=>(h.variants.find(x=>x.key==="current")||{}).avg_r);
+  const bothHalves = hv.length===2 && hv.every(x=>x!=null && x>0);
+  const robust = sim.avg_r_trim==null || sim.avg_r_trim > 0;
+  let verdict;
+  if(!sim.trades) verdict = "لا توجد صفقات كافية للحكم بعد.";
+  else if(sim.avg_r <= 0) verdict = "النتائج سلبية: إشارات المنهج لم تحقق ربحاً في المتوسط خلال هذه الفترة. يحتاج المنهج مراجعة قبل الاعتماد عليه بأموال حقيقية.";
+  else if(!robust) verdict = "النتائج موجبة، لكنها تعتمد على صفقات قليلة ربحت كثيراً. بعد استبعاد أفضل 5% منها تصبح خاسرة، فهي هشة.";
+  else if(b.halves && !bothHalves) verdict = "النتائج موجبة في المجمل، لكنها لم تتكرر في نصفي الفترة، فقد تكون صدفة.";
+  else if(sim.avg_r > 0.15 && edge > 0) verdict = "النتائج إيجابية ومتماسكة: الصفقات رابحة في المتوسط" + (b.halves?"، وفي نصفي الفترة كليهما، وتبقى رابحة بعد استبعاد أفضل 5% منها":"") + ". ما زالت تحتاج حذراً بسبب القيود المذكورة أدناه.";
+  else verdict = "النتائج متواضعة: متوسط الصفقات موجب لكن بفارق صغير، فلا تكفي للاعتماد على المنهج وحده.";
   const recent = (b.recent||[]).slice(0,30).map(x=>`<tr><td><b class="num">${x.s}</b></td><td class="num">${x.d}</td><td>${Math.round(x.score)}</td>
     <td class="num">${rrText(x.rr)}</td><td class="num ${x.sim?(x.sim.r>0?"up":"down"):""}">${x.sim?(x.sim.r>0?"+":"")+x.sim.r+"R":"—"}</td>
-    <td>${x.sim?{target:"الهدف",stop:"الوقف",time:"انتهت المدة"}[x.sim.exit]:"—"}</td></tr>`).join("");
+    <td>${x.sim?{target:"الهدف",stop:"الوقف",gap:"فجوة",time:"انتهت المدة"}[x.sim.exit]:"—"}</td></tr>`).join("");
 
   body.innerHTML = head + tabs + `
     <div class="panel">
@@ -775,8 +786,8 @@ async function openBacktest(push=true){
       <p class="sub">${m.from} إلى ${m.to} • ${m.symbols} سهماً • ${m.evaluations.toLocaleString("en")} شمعة مُقيّمة</p>
       <div class="bt-cards">
         <div class="kv"><span>إشارات قريب/جاهز</span><b class="num">${sg.count}</b><small>بعد البوابتين، وبفاصل ${m.cooldown} أيام لنفس السهم</small></div>
-        <div class="kv"><span>متوسط الصفقة</span><b class="num ${sim.avg_r>0?"up":"down"}">${sim.trades?(sim.avg_r>0?"+":"")+sim.avg_r+"R":"—"}</b><small>R = مقدار المخاطرة حتى الوقف</small></div>
-        <div class="kv"><span>الصفقات الرابحة</span><b class="num">${sim.trades?sim.win_rate+"%":"—"}</b><small>وصلت الهدف <span class="num">${sim.target_rate??"—"}%</span>، والوقف <span class="num">${sim.stop_rate??"—"}%</span></small></div>
+        <div class="kv"><span>متوسط الصفقة</span><b class="num ${sim.avg_r>0?"up":"down"}">${sim.trades?(sim.avg_r>0?"+":"")+sim.avg_r+"R":"—"}</b><small>${sim.avg_r_trim!=null?`بلا أفضل 5% من الصفقات: <span class="num">${(sim.avg_r_trim>0?"+":"")+sim.avg_r_trim}R</span>`:"R = مقدار المخاطرة حتى الوقف"}</small></div>
+        <div class="kv"><span>الصفقات الرابحة</span><b class="num">${sim.trades?sim.win_rate+"%":"—"}</b><small>وصلت الهدف <span class="num">${sim.target_rate??"—"}%</span>، والوقف <span class="num">${sim.stop_rate??"—"}%</span>${sim.gap_rate?`، منها فجوات <span class="num">${sim.gap_rate}%</span>`:""}</small></div>
         <div class="kv"><span>عائد 10 أيام للإشارات</span><b class="num ${sg.d10.mean>0?"up":"down"}">${v(sg.d10.mean)}</b><small>مقابل <span class="num">${v(base.mean)}</span> لكل الأيام</small></div>
       </div>
       <p class="sub" style="margin:12px 0 0;color:var(--ink)">${verdict}</p>
@@ -784,7 +795,7 @@ async function openBacktest(push=true){
 
     <div class="panel">
       <h2>هل الدرجة الأعلى تعني صعوداً أكبر؟</h2>
-      <p class="sub">متوسط العائد بعد 10 أيام تداول حسب الدرجة الفنية (من 70)، مقارنة بكل الأيام. إن كان المنهج يعمل، يجب أن تميل الأشرطة للأخضر وتطول كلما ارتفعت الدرجة.</p>
+      <p class="sub">متوسط العائد بعد 10 أيام تداول حسب الدرجة الفنية (كنسبة من أقصاها)، مقارنة بكل الأيام. إن كان المنهج يعمل، يجب أن تميل الأشرطة للأخضر وتطول كلما ارتفعت الدرجة.</p>
       <div class="bars">
         ${barRow("كل الأيام", base)}
         ${b.buckets.map(k=>barRow(`<span class="num">${k.range[0]}–${k.range[1]}</span>`, k.d10)).join("")}
@@ -796,7 +807,7 @@ async function openBacktest(push=true){
       <p class="sub">متوسط العائد بعد 10 أيام حين يتحقق الشرط كاملاً، مقارنة بحين لا يتحقق. الفرق الموجب يعني أن الشرط يساعد، والسالب أنه يضر. الأرقام بين القوسين عدد الأيام.</p>
       <div class="tblwrap"><table class="tbl"><thead><tr><th>الشرط</th><th>متحقق</th><th>غير متحقق</th><th>الفرق</th></tr></thead><tbody>
       ${[...b.conditions].sort((a,c)=>(c.lift??-99)-(a.lift??-99)).map(k=>`<tr>
-        <td style="white-space:normal">${k.title}<small class="cnt">الوزن ${k.weight}</small></td>
+        <td style="white-space:normal">${k.title}<small class="cnt">الوزن ${k.weight}${k.weight_v1!=null&&k.weight_v1!==k.weight?` (كان ${k.weight_v1})`:""}</small></td>
         <td class="num">${v(k.met.mean)}<small class="cnt">${(k.met.n||0).toLocaleString("en")} يوم</small></td>
         <td class="num">${v(k.not.mean)}<small class="cnt">${(k.not.n||0).toLocaleString("en")} يوم</small></td>
         <td class="num ${k.lift==null?"":k.lift>0?"up":"down"}"><b>${k.lift==null?"—":(k.lift>0?"+":"")+k.lift}</b></td></tr>`).join("")}
@@ -804,18 +815,38 @@ async function openBacktest(push=true){
     </div>` : ""}
 
     ${b.variants ? (() => {
-      const best = [...b.variants].filter(x=>x.trades>=20&&x.avg_r!=null).sort((a,c)=>c.avg_r-a.avg_r)[0];
+      const key = x => x.avg_r_trim ?? x.avg_r;
+      const best = [...b.variants].filter(x=>x.trades>=20&&key(x)!=null).sort((a,c)=>key(c)-key(a))[0];
       return `<div class="panel">
       <h2>مقارنة صيغ المنهج</h2>
-      <p class="sub">نفس الإشارات بقواعد مختلفة. R متوسط ربح الصفقة بمضاعفات المخاطرة. الصيغة التي صفقاتها أقل من 20 لا يُعتمد على نتيجتها.</p>
+      <p class="sub">نفس الأسهم بقواعد مختلفة. R متوسط ربح الصفقة بمضاعفات المخاطرة، وتحته المتوسط بعد استبعاد أفضل 5% من الصفقات: إن بقي موجباً فالربح لا يعتمد على صفقات محظوظة. الصيغة التي صفقاتها أقل من 20 لا يُعتمد عليها.</p>
       <div class="tblwrap"><table class="tbl"><thead><tr><th>الصيغة</th><th>صفقات</th><th>رابحة</th><th>متوسط</th></tr></thead><tbody>
       ${b.variants.map(x=>`<tr${best&&x.key===best.key?` style="background:color-mix(in srgb,var(--ready) 10%,transparent)"`:""}>
         <td style="white-space:normal">${x.name}</td><td>${x.trades}</td>
-        <td class="num">${x.win_rate==null?"—":x.win_rate+"%"}<small class="cnt">الوقف ${x.stop_rate==null?"—":x.stop_rate+"%"}</small></td>
-        <td class="num ${x.avg_r>0?"up":x.avg_r<0?"down":""}"><b>${x.avg_r==null?"—":(x.avg_r>0?"+":"")+x.avg_r+"R"}</b><small class="cnt">مجموع ${x.total_r==null?"—":(x.total_r>0?"+":"")+x.total_r+"R"}</small></td></tr>`).join("")}
+        <td class="num">${x.win_rate==null?"—":x.win_rate+"%"}<small class="cnt">الوقف ${x.stop_rate==null?"—":x.stop_rate+"%"}${x.gap_rate?` • فجوات ${x.gap_rate}%`:""}</small></td>
+        <td class="num ${x.avg_r>0?"up":x.avg_r<0?"down":""}"><b>${x.avg_r==null?"—":(x.avg_r>0?"+":"")+x.avg_r+"R"}</b><small class="cnt">${x.avg_r_trim!=null?`بلا أفضل 5%: ${(x.avg_r_trim>0?"+":"")+x.avg_r_trim}R`:`مجموع ${x.total_r==null?"—":(x.total_r>0?"+":"")+x.total_r+"R"}`}</small></td></tr>`).join("")}
       </tbody></table></div>
-      ${best?`<p class="sub" style="margin:10px 0 0;color:var(--ink)">أفضل صيغة بعينة كافية: <b>${best.name}</b> بمتوسط <span class="num">${(best.avg_r>0?"+":"")+best.avg_r}R</span> على ${best.trades} صفقة.</p>`:""}
+      ${best?`<p class="sub" style="margin:10px 0 0;color:var(--ink)">أفضل صيغة بعينة كافية (بعد استبعاد أفضل 5%): <b>${best.name}</b> بمتوسط <span class="num">${(key(best)>0?"+":"")+key(best)}R</span> على ${best.trades} صفقة.</p>`:""}
     </div>`; })() : ""}
+
+    ${b.halves && b.halves.length===2 ? `<div class="panel">
+      <h2>هل تتكرر النتيجة في نصفي الفترة؟</h2>
+      <p class="sub">الفترة مقسومة نصفين. الصيغة الجيدة فعلاً تربح في النصفين، أما التي تربح في نصف وتخسر في الآخر فنتيجتها صدفة غالباً.</p>
+      <div class="tblwrap"><table class="tbl"><thead><tr><th>الصيغة</th>${b.halves.map(h=>`<th>${h.label}<small class="cnt num" style="direction:ltr">${(h.from||"").slice(0,7)} → ${(h.to||"").slice(0,7)}</small></th>`).join("")}</tr></thead><tbody>
+      ${b.halves[0].variants.map((x,i)=>`<tr><td style="white-space:normal;min-width:130px">${x.name}</td>${b.halves.map(h=>{const y=h.variants[i]; return `<td class="num ${y.avg_r>0?"up":y.avg_r<0?"down":""}"><b>${y.avg_r==null?"—":(y.avg_r>0?"+":"")+y.avg_r+"R"}</b><small class="cnt">${y.trades} صفقة</small></td>`;}).join("")}</tr>`).join("")}
+      </tbody></table></div>
+    </div>` : ""}
+
+    ${b.floats ? `<div class="panel">
+      <h2>النتائج حسب حجم الفلوت</h2>
+      <p class="sub">التذبذب = مدى تفاوت العائد بعد 10 أيام (كلما ارتفع زادت المخاطرة). والفجوات = نسبة الصفقات التي افتتح فيها السهم تحت الوقف، فكانت الخسارة أكبر من المخطط.</p>
+      <div class="tblwrap"><table class="tbl"><thead><tr><th>الفلوت</th><th>عائد 10 أيام</th><th>التذبذب</th><th>الصفقات</th></tr></thead><tbody>
+      ${b.floats.filter(f=>f.days.n).map(f=>`<tr><td>${f.label}<small class="cnt">${f.days.n.toLocaleString("en")} شمعة</small></td>
+        <td class="num ${f.days.mean>0?"up":"down"}">${v(f.days.mean)}</td>
+        <td class="num">${f.volatility??"—"}</td>
+        <td class="num ${f.t_avg_r>0?"up":f.t_avg_r<0?"down":""}"><b>${f.t_avg_r==null?"—":(f.t_avg_r>0?"+":"")+f.t_avg_r+"R"}</b><small class="cnt">${f.t_trades} صفقة${f.t_gap_rate?` • فجوات ${f.t_gap_rate}%`:""}${f.t_worst_r!=null?` • أسوأ ${f.t_worst_r}R`:""}</small></td></tr>`).join("")}
+      </tbody></table></div>
+    </div>` : ""}
 
     <div class="panel">
       <h2>آخر الإشارات ونتيجتها</h2>
