@@ -735,7 +735,7 @@ window.addEventListener("resize", ()=>{ const s=$("#sheet"); if(s.classList.cont
 /* ---------- الاختبار التاريخي ---------- */
 async function openBacktest(push=true){
   const body = $("#sheetBody");
-  body.innerHTML = `<div class="shead"><button class="icon-btn" id="close" aria-label="رجوع"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button><div class="t"><b style="direction:rtl">الاختبار التاريخي</b><div>منهج YGH على الفريم اليومي</div></div></div><div class="panel"><p class="sub" style="margin:0">جارٍ التحميل…</p></div>`;
+  body.innerHTML = `<div class="shead"><button class="icon-btn" id="close" aria-label="رجوع"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button><div class="t"><b style="direction:rtl">الاختبار التاريخي</b><div>منهج YGH على البيانات التاريخية</div></div></div><div class="panel"><p class="sub" style="margin:0">جارٍ التحميل…</p></div>`;
   const sheet = $("#sheet"); sheet.classList.add("open"); sheet.scrollTop = 0; document.body.style.overflow = "hidden";
   if(push) history.pushState({bt:1}, "", "#backtest");
   $("#close").onclick = () => history.back();
@@ -743,13 +743,20 @@ async function openBacktest(push=true){
   try{ const res = await fetch("backtest.json?t="+Date.now(), {cache:"no-store"}); if(!res.ok) throw 0; b = await res.json(); }
   catch{ body.querySelector(".panel").innerHTML = `<h2>لم يُشغّل الاختبار بعد</h2><p class="sub" style="margin:0">شغّل «الاختبار التاريخي» من تبويب Actions في مستودع المحرك، وستظهر النتائج هنا بعد اكتماله (حوالي 20 دقيقة).</p>`; return; }
 
+  const all = b.results || {"1d": b};
+  const tfs = ["4h","1d"].filter(k=>all[k]);
+  let cur = all[state.btTf] ? state.btTf : tfs[0];
+  const head = body.querySelector(".shead").outerHTML;
+  const draw = () => {
+  const b = all[cur];
+  const tabs = tfs.length>1 ? `<nav class="tabs" role="tablist" style="margin-bottom:12px">${tfs.map(k=>`<button role="tab" data-bt="${k}" aria-selected="${k===cur}">${k==="4h"?"4 ساعات":"يومي"}</button>`).join("")}</nav>` : "";
   const m = b.meta, base = b.baseline["10"] || b.baseline[10], sim = b.simulation, sg = b.signals;
   const v = (x, suf="%") => x==null ? "—" : (x>0&&suf==="%"?"+":"") + x + suf;
   const maxAbs = Math.max(1, ...b.buckets.map(k=>Math.abs(k.d10.mean||0)), Math.abs(base.mean||0));
   const barRow = (label, st, sub) => {
     if(!st || !st.n) return `<div class="bar"><span>${label}</span><div class="track"></div><span>—</span></div>`;
     const w = Math.abs(st.mean)/maxAbs*50, pos = st.mean>=0;
-    return `<div class="bar"><span>${label}<small>${st.n.toLocaleString("en")} يوم</small></span>
+    return `<div class="bar"><span>${label}<small>${st.n.toLocaleString("en")} شمعة</small></span>
       <div class="track"><span class="zero" style="left:50%"></span><i style="${pos?"left:50%":"right:50%"};width:${w}%;background:var(${pos?"--up":"--down"})"></i></div>
       <span style="text-align:left"><b class="num" style="font-weight:600">${v(st.mean)}</b><small>صاعد <span class="num">${st.win}%</span></small></span></div>`;
   };
@@ -762,10 +769,10 @@ async function openBacktest(push=true){
     <td class="num">${rrText(x.rr)}</td><td class="num ${x.sim?(x.sim.r>0?"up":"down"):""}">${x.sim?(x.sim.r>0?"+":"")+x.sim.r+"R":"—"}</td>
     <td>${x.sim?{target:"الهدف",stop:"الوقف",time:"انتهت المدة"}[x.sim.exit]:"—"}</td></tr>`).join("");
 
-  body.innerHTML = body.querySelector(".shead").outerHTML + `
+  body.innerHTML = head + tabs + `
     <div class="panel">
       <h2>الخلاصة</h2>
-      <p class="sub">${m.from} إلى ${m.to} • ${m.symbols} سهماً • ${m.evaluations.toLocaleString("en")} يوم-سهم مُقيّم</p>
+      <p class="sub">${m.from} إلى ${m.to} • ${m.symbols} سهماً • ${m.evaluations.toLocaleString("en")} شمعة مُقيّمة</p>
       <div class="bt-cards">
         <div class="kv"><span>إشارات قريب/جاهز</span><b class="num">${sg.count}</b><small>بعد البوابتين، وبفاصل ${m.cooldown} أيام لنفس السهم</small></div>
         <div class="kv"><span>متوسط الصفقة</span><b class="num ${sim.avg_r>0?"up":"down"}">${sim.trades?(sim.avg_r>0?"+":"")+sim.avg_r+"R":"—"}</b><small>R = مقدار المخاطرة حتى الوقف</small></div>
@@ -812,16 +819,20 @@ async function openBacktest(push=true){
 
     <div class="panel">
       <h2>آخر الإشارات ونتيجتها</h2>
-      <p class="sub">الدخول بافتتاح اليوم التالي، والخروج عند الهدف أو الوقف أو بعد ${m.max_hold} يوماً.</p>
+      <p class="sub">الدخول بافتتاح اليوم التالي، والخروج عند الهدف أو الوقف أو بعد ${m.max_hold} يوم تداول.</p>
       <div class="tblwrap"><table class="tbl"><thead><tr><th>السهم</th><th>التاريخ</th><th>الدرجة</th><th>ع/م</th><th>النتيجة</th><th>الخروج</th></tr></thead><tbody>${recent||`<tr><td colspan="6">لا توجد إشارات.</td></tr>`}</tbody></table></div>
     </div>
 
     <div class="panel warn">
       <h2>حدود هذا الاختبار</h2>
-      <p class="sub" style="margin:0">الفلوت ورسوم الاقتراض محسوبة بقيمتها الحالية لأن تاريخها غير متوفر مجاناً. والأسهم المختبرة هي المرشحة اليوم من IBKR، فالأسهم التي شُطبت في الفترة غير موجودة، وهذا يجعل النتائج أفضل قليلاً من الحقيقة. والاختبار على الفريم اليومي فقط، لأن بيانات الساعة المجانية لا تكفي لفترة طويلة. ولا تشمل النتائج العمولات والانزلاق السعري.</p>
+      <p class="sub" style="margin:0">الفلوت ورسوم الاقتراض محسوبة بقيمتها الحالية لأن تاريخها غير متوفر مجاناً. والأسهم المختبرة هي المرشحة اليوم من IBKR، فالأسهم التي شُطبت في الفترة غير موجودة، وهذا يجعل النتائج أفضل قليلاً من الحقيقة. وفريم 4 ساعات مبني من شموع الساعة المجانية لآخر سنتين تقريباً. ولا تشمل النتائج العمولات والانزلاق السعري.</p>
     </div>
     <p class="disclaimer">آخر تشغيل ${m.generated_at_utc} UTC. النتائج السابقة لا تضمن نتائج مستقبلية.</p>`;
   $("#close").onclick = () => history.back();
+
+  body.querySelectorAll("[data-bt]").forEach(x=>x.onclick=()=>{ cur = state.btTf = x.dataset.bt; draw(); });
+  };
+  draw();
 }
 
 /* ---------- التحميل ---------- */
