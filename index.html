@@ -848,6 +848,19 @@ async function openBacktest(push=true){
       </tbody></table></div>
     </div>` : ""}
 
+    ${b.audit && b.audit.best && b.audit.best.length ? `<div class="panel">
+      <h2>أفضل الصفقات: هل هي حقيقية؟</h2>
+      <p class="sub">معظم ربح المنهج يأتي من هذه الصفقات. افتح بعضها على TradingView وتأكد أن السهم تحرك فعلاً بهذه النسبة في هذه التواريخ. الصفقات المعلّمة ⚠ فيها قفزة شمعة واحدة أكبر من 100% أو تقع قرب تقسيم عكسي، وقد تكون خطأ في البيانات.</p>
+      ${sim.clean ? `<p class="sub" style="color:var(--ink)">صفقات مشبوهة: <b class="num">${sim.suspects}</b>. وبدونها: متوسط <b class="num ${sim.clean.avg_r>0?"up":"down"}">${(sim.clean.avg_r>0?"+":"")+sim.clean.avg_r}R</b> على ${sim.clean.trades} صفقة، وبعد استبعاد أفضل 5% أيضاً <b class="num ${sim.clean.avg_r_trim>0?"up":"down"}">${sim.clean.avg_r_trim==null?"—":(sim.clean.avg_r_trim>0?"+":"")+sim.clean.avg_r_trim+"R"}</b>.</p>` : ""}
+      <div class="tblwrap"><table class="tbl"><thead><tr><th>السهم</th><th>الإشارة</th><th>الحركة</th><th>R</th></tr></thead><tbody>
+      ${b.audit.best.map(a=>`<tr${a.suspect?` style="background:color-mix(in srgb,var(--watch) 12%,transparent)"`:""}>
+        <td><a class="num" style="color:var(--accent);font-weight:700" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(a.s)}" target="_blank" rel="noopener">${a.s}</a>${a.suspect?`<small class="cnt">⚠ ${a.near_split?"قرب تقسيم":"قفزة "+a.max_jump_pct+"%"}</small>`:""}</td>
+        <td class="num">${a.d.slice(0,10)}<small class="cnt">خروج ${(a.exit_d||"—").slice(0,10)}</small></td>
+        <td class="num ${a.move_pct>0?"up":"down"}"><b>${a.move_pct!=null?(a.move_pct>0?"+":"")+a.move_pct+"%":"—"}</b><small class="cnt">من ${a.entry!=null?fmtP(a.entry):"—"} إلى ${a.exit_px!=null?fmtP(a.exit_px):"—"}</small></td>
+        <td class="num ${a.r>0?"up":"down"}"><b>${(a.r>0?"+":"")+a.r}</b></td></tr>`).join("")}
+      </tbody></table></div>
+    </div>` : ""}
+
     <div class="panel">
       <h2>آخر الإشارات ونتيجتها</h2>
       <p class="sub">الدخول بافتتاح اليوم التالي، والخروج عند الهدف أو الوقف أو بعد ${m.max_hold} يوم تداول.</p>
