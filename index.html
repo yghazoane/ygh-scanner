@@ -930,6 +930,15 @@ async function openJournal(push=true){
       <p class="sub" style="margin:12px 0 0;color:var(--ink)">${verdict}</p>
     </div>
 
+    ${S.alt_close ? `<div class="panel">
+      <h2>تجربة موازية: الوقف على الإغلاق</h2>
+      <p class="sub">نفس الإشارات، لكن الصفقة لا تُغلق إلا إذا <b>أغلقت</b> شمعة تحت الوقف، لا بمجرد لمسه. للمقارنة فقط، ولا تغير نتيجة المنهج.</p>
+      <div class="bt-cards">
+        <div class="kv"><span>متوسط الصفقة</span><b class="num ${cls(S.alt_close.avg_r)}">${R(S.alt_close.avg_r)}</b><small>مقابل <span class="num">${R(A.avg_r)}</span> بالوقف الحالي</small></div>
+        <div class="kv"><span>المجموع</span><b class="num ${cls(S.alt_close.total_r)}">${R(S.alt_close.total_r)}</b><small>مغلقة <span class="num">${S.alt_close.closed}</span>، مفتوحة <span class="num">${S.alt_close.open}</span></small></div>
+      </div>
+    </div>` : ""}
+
     <div class="panel">
       <h2>الصفقات المفتوحة</h2>
       <p class="sub">الدخول بافتتاح الشمعة التالية للإشارة، والخروج عند الهدف أو الوقف أو بعد ${20} يوم تداول. R الحالية محسوبة من آخر إغلاق.</p>
@@ -947,7 +956,7 @@ async function openJournal(push=true){
       ${done.slice(0,40).map(e=>`<tr><td>${sym(e)}<small class="cnt">${e.tf==="4h"?"4 ساعات":"يومي"}</small></td>
         <td class="num">${e.bar_t.slice(0,10)}<small class="cnt">دخول ${e.entry!=null?fmtP(e.entry):"—"}</small></td>
         <td>${STATE_AR[e.state]}<small class="cnt num">${(e.exit_t||"").slice(0,10)}</small></td>
-        <td class="num ${cls(e.r)}"><b>${R(e.r)}</b></td></tr>`).join("")}
+        <td class="num ${cls(e.r)}"><b>${R(e.r)}</b>${e.alt_close&&e.alt_close.state&&e.alt_close.state!=="no_entry"?`<small class="cnt">على الإغلاق:</small><small class="cnt num">${e.alt_close.state==="open"?"مفتوحة "+R(e.alt_close.r_now):R(e.alt_close.r)}</small>`:""}</td></tr>`).join("")}
       </tbody></table></div>` : `<p class="sub" style="margin:0">لم تُغلق أي صفقة بعد.</p>`}
     </div>
 
