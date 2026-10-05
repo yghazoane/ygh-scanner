@@ -370,7 +370,7 @@ function rowHTML(r){
       <div><span>الفلوت</span><b class="num">${human(r.float)}</b></div>
       <div><span>الاقتراض</span><b class="num">${r.borrow_fee!=null?r.borrow_fee.toFixed(1)+"%":"—"}</b></div>
       <div><span>الشورت</span><b class="num">${human(r.short_available)}</b></div>
-      <div><span>التقسيم</span><b>${rs?`<span class="num">${rs.text}</span>`:"—"}</b></div>
+      <div><span>التقسيم</span><b class="num">${rs?rs.text:"—"}</b></div>
     </div>
     ${r.gated?`<div class="gatenote">درجته تؤهله لحالة أعلى، لكنه بعيد عن الدعم فبقي في المراقبة.</div>`:""}
   </button></li>`;
