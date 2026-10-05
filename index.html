@@ -33,6 +33,7 @@
   }
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%}
 body{
   margin:0; background:var(--bg); color:var(--ink);
@@ -226,6 +227,9 @@ canvas{width:100%;height:280px;display:block;touch-action:pan-y}
       <p>أسهم السوق الأمريكي بمنهج YGH</p>
     </div>
     <div class="top-actions">
+    <button class="icon-btn" id="jBtn" aria-label="سجل الإشارات" title="سجل الإشارات (الاختبار الأمامي)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M9 10h6M9 14h6M9 18h4"/></svg>
+    </button>
     <button class="icon-btn" id="btBtn" aria-label="الاختبار التاريخي" title="الاختبار التاريخي">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
     </button>
@@ -737,6 +741,7 @@ function closeSheet(){
 window.addEventListener("popstate", ()=>{
   const s = location.hash.slice(1);
   if(s==="backtest") openBacktest(false);
+  else if(s==="journal") openJournal(false);
   else if(s && state.data) openSheet(s, false); else closeSheet();
 });
 window.addEventListener("resize", ()=>{ const s=$("#sheet"); if(s.classList.contains("open") && s._repaint) s._repaint(); });
@@ -883,6 +888,84 @@ async function openBacktest(push=true){
   draw();
 }
 
+/* ---------- سجل الإشارات ---------- */
+const STATE_AR = {pending:"بانتظار الدخول", open:"مفتوحة", target:"الهدف", stop:"الوقف", gap:"فجوة", time:"انتهت المدة", no_entry:"لم تُفتح", closed:"مغلقة"};
+async function openJournal(push=true){
+  const body = $("#sheetBody");
+  const head = `<div class="shead"><button class="icon-btn" id="close" aria-label="رجوع"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button><div class="t"><b style="direction:rtl">سجل الإشارات</b><div>الاختبار الأمامي على بيانات جديدة</div></div></div>`;
+  body.innerHTML = head + `<div class="panel"><p class="sub" style="margin:0">جارٍ التحميل…</p></div>`;
+  const sheet = $("#sheet"); sheet.classList.add("open"); sheet.scrollTop = 0; document.body.style.overflow = "hidden";
+  if(push) history.pushState({j:1}, "", "#journal");
+  $("#close").onclick = () => history.back();
+  let j;
+  try{ const res = await fetch("journal.json?t="+Date.now(), {cache:"no-store"}); if(!res.ok) throw 0; j = await res.json(); }
+  catch{ body.querySelector(".panel").innerHTML = `<h2>السجل لم يبدأ بعد</h2><p class="sub" style="margin:0">يبدأ تلقائياً مع أول مسح بعد التحديث، ويسجل كل سهم جاهز أو قريب من الجاهزية.</p>`; return; }
+
+  const S = j.summary || {}, A = S.all || {}, D = S.daily75 || {};
+  const R = x => x==null ? "—" : (x>0?"+":"") + x + "R";
+  const P = x => x==null ? "—" : (x>0?"+":"") + x + "%";
+  const cls = x => x==null ? "" : x>0 ? "up" : x<0 ? "down" : "";
+  const NEED = 30;
+  const verdict = (A.closed||0) < NEED
+    ? `العينة ما زالت صغيرة: <b class="num">${A.closed||0}</b> صفقة مغلقة من <b class="num">${NEED}</b> على الأقل. لا تحكم على المنهج قبلها، فبضع صفقات قد تكون حظاً أو سوء حظ.`
+    : A.avg_r > 0.1 && (A.avg_r_trim??A.avg_r) > 0 ? "المنهج رابح على بيانات جديدة، وحتى بعد استبعاد أفضل 5% من الصفقات. هذه أقوى نتيجة ممكنة، لكن استمر بحجم صفقات صغير."
+    : A.avg_r > 0 ? "المنهج رابح قليلاً على البيانات الجديدة، لكن الربح يعتمد على صفقات قليلة. استمر بالمراقبة قبل زيادة أي حجم."
+    : "المنهج خاسر على البيانات الجديدة، كما توقع الاختبار التاريخي. لا تعتمد عليه للدخول.";
+  const tfLine = k => { const x = S[k]||{}; return `${k==="4h"?"4 ساعات":"يومي"}: <span class="num">${x.closed||0}</span> مغلقة، متوسط <span class="num ${cls(x.avg_r)}">${R(x.avg_r)}</span>`; };
+  const sym = e => `<a class="num" style="color:var(--accent);font-weight:700" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(e.s)}" target="_blank" rel="noopener">${e.s}</a>`;
+  const live = j.signals.filter(e=>e.state==="open"||e.state==="pending").sort((a,b)=>b.bar_t.localeCompare(a.bar_t));
+  const done = j.signals.filter(e=>!["open","pending"].includes(e.state)).sort((a,b)=>(b.exit_t||b.bar_t).localeCompare(a.exit_t||a.bar_t));
+  const d75open = j.daily75.filter(e=>e.state!=="closed"), d75done = j.daily75.filter(e=>e.state==="closed").slice(-20).reverse();
+
+  body.innerHTML = head + `
+    <div class="panel">
+      <h2>الخلاصة</h2>
+      <p class="sub">منذ ${j.started_utc||"—"} UTC • آخر تحديث ${j.updated_utc||"—"} UTC</p>
+      <div class="bt-cards">
+        <div class="kv"><span>صفقات مغلقة</span><b class="num">${A.closed||0}</b><small>مفتوحة <span class="num">${A.open||0}</span>، بانتظار الدخول <span class="num">${A.pending||0}</span></small></div>
+        <div class="kv"><span>متوسط الصفقة</span><b class="num ${cls(A.avg_r)}">${R(A.avg_r)}</b><small>بلا أفضل 5%: <span class="num">${R(A.avg_r_trim)}</span></small></div>
+        <div class="kv"><span>الرابحة</span><b class="num">${A.win_rate==null?"—":A.win_rate+"%"}</b><small>الهدف <span class="num">${A.targets||0}</span>، والوقف <span class="num">${A.stops||0}</span></small></div>
+        <div class="kv"><span>المجموع</span><b class="num ${cls(A.total_r)}">${R(A.total_r)}</b><small>${tfLine("4h")}<br>${tfLine("1d")}</small></div>
+      </div>
+      <p class="sub" style="margin:12px 0 0;color:var(--ink)">${verdict}</p>
+    </div>
+
+    <div class="panel">
+      <h2>الصفقات المفتوحة</h2>
+      <p class="sub">الدخول بافتتاح الشمعة التالية للإشارة، والخروج عند الهدف أو الوقف أو بعد ${20} يوم تداول. R الحالية محسوبة من آخر إغلاق.</p>
+      ${live.length ? `<div class="tblwrap"><table class="tbl"><thead><tr><th>السهم</th><th>الإشارة</th><th>الخطة</th><th>الآن</th></tr></thead><tbody>
+      ${live.map(e=>`<tr><td>${sym(e)}<small class="cnt">${e.tf==="4h"?"4 ساعات":"يومي"}</small><small class="cnt">${e.status==="ready"?"جاهز":"قريب"}</small></td>
+        <td class="num">${e.bar_t.slice(0,10)}<small class="cnt">${STATE_AR[e.state]}</small></td>
+        <td class="num">${e.entry!=null?fmtP(e.entry):fmtP(e.ref)}<small class="cnt">وقف ${fmtP(e.stop)}</small><small class="cnt">هدف ${fmtP(e.t1)}</small></td>
+        <td class="num ${cls(e.r_now)}"><b>${R(e.r_now)}</b><small class="cnt">${e.last_px!=null?fmtP(e.last_px):""}</small></td></tr>`).join("")}
+      </tbody></table></div>` : `<p class="sub" style="margin:0">لا توجد صفقات مفتوحة الآن.</p>`}
+    </div>
+
+    <div class="panel">
+      <h2>الصفقات المغلقة</h2>
+      ${done.length ? `<div class="tblwrap"><table class="tbl"><thead><tr><th>السهم</th><th>الإشارة</th><th>الخروج</th><th>النتيجة</th></tr></thead><tbody>
+      ${done.slice(0,40).map(e=>`<tr><td>${sym(e)}<small class="cnt">${e.tf==="4h"?"4 ساعات":"يومي"}</small></td>
+        <td class="num">${e.bar_t.slice(0,10)}<small class="cnt">دخول ${e.entry!=null?fmtP(e.entry):"—"}</small></td>
+        <td>${STATE_AR[e.state]}<small class="cnt num">${(e.exit_t||"").slice(0,10)}</small></td>
+        <td class="num ${cls(e.r)}"><b>${R(e.r)}</b></td></tr>`).join("")}
+      </tbody></table></div>` : `<p class="sub" style="margin:0">لم تُغلق أي صفقة بعد.</p>`}
+    </div>
+
+    <div class="panel">
+      <h2>خيط اليومي 75+</h2>
+      <p class="sub">كل سهم درجته الفنية على اليومي 75% فأكثر، وعائده بعد 10 أيام تداول بلا هدف ولا وقف، بعد خصم التكلفة. في الاختبار التاريخي حققت هذه الفئة متوسط +3.6% مقابل ‎-0.9% لكل الأسهم، والسجل يختبر هل يتكرر ذلك.</p>
+      <div class="bt-cards">
+        <div class="kv"><span>مكتملة</span><b class="num">${D.closed||0}</b><small>جارية <span class="num">${D.open||0}</span></small></div>
+        <div class="kv"><span>متوسط العائد</span><b class="num ${cls(D.avg_ret)}">${P(D.avg_ret)}</b><small>الوسيط <span class="num">${P(D.median_ret)}</span>، الصاعدة <span class="num">${D.win_rate==null?"—":D.win_rate+"%"}</span></small></div>
+      </div>
+      ${d75done.length?`<div class="tblwrap" style="margin-top:10px"><table class="tbl"><thead><tr><th>السهم</th><th>الإشارة</th><th>العائد</th></tr></thead><tbody>
+      ${d75done.map(e=>`<tr><td>${sym(e)}</td><td class="num">${e.bar_t.slice(0,10)}</td><td class="num ${cls(e.ret)}"><b>${P(e.ret)}</b></td></tr>`).join("")}</tbody></table></div>`:""}
+      ${d75open.length?`<p class="sub" style="margin:10px 0 0">جارية الآن: ${d75open.map(e=>`${sym(e)} <small class="num ${cls(e.ret_now)}">${e.ret_now!=null?P(e.ret_now):"بانتظار الدخول"}</small>`).join(" • ")}</p>`:""}
+    </div>
+    <p class="disclaimer">السجل يتحدث تلقائياً مع كل مسح. النتائج السابقة لا تضمن نتائج مستقبلية.</p>`;
+  $("#close").onclick = () => history.back();
+}
+
 /* ---------- التحميل ---------- */
 async function load(){
   const btn = $("#reload"); btn.disabled = true; btn.style.opacity=.5;
@@ -902,7 +985,7 @@ async function load(){
   btn.disabled = false; btn.style.opacity=1;
   render();
   const s = location.hash.slice(1);
-  if(s==="backtest") openBacktest(false); else if(s && state.data) openSheet(s, false);
+  if(s==="backtest") openBacktest(false); else if(s==="journal") openJournal(false); else if(s && state.data) openSheet(s, false);
 }
 
 /* ---------- الأحداث ---------- */
@@ -922,6 +1005,7 @@ $("#more").onclick = () => { state.shown += PAGE; render(); };
 $("#list").addEventListener("click", e=>{ const b = e.target.closest(".row"); if(b) openSheet(b.dataset.s); });
 $("#reload").onclick = load;
 $("#btBtn").onclick = () => openBacktest();
+$("#jBtn").onclick = () => openJournal();
 load();
 </script>
 </body>
