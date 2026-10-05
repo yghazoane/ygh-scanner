@@ -835,7 +835,9 @@ async function openBacktest(push=true){
         <td class="num">${x.win_rate==null?"—":x.win_rate+"%"}<small class="cnt">الوقف ${x.stop_rate==null?"—":x.stop_rate+"%"}${x.gap_rate?` • فجوات ${x.gap_rate}%`:""}</small></td>
         <td class="num ${x.avg_r>0?"up":x.avg_r<0?"down":""}"><b>${x.avg_r==null?"—":(x.avg_r>0?"+":"")+x.avg_r+"R"}</b><small class="cnt">${x.avg_r_trim!=null?`بلا أفضل 5%: ${(x.avg_r_trim>0?"+":"")+x.avg_r_trim}R`:`مجموع ${x.total_r==null?"—":(x.total_r>0?"+":"")+x.total_r+"R"}`}</small></td></tr>`).join("")}
       </tbody></table></div>
-      ${best?`<p class="sub" style="margin:10px 0 0;color:var(--ink)">أفضل صيغة بعينة كافية (بعد استبعاد أفضل 5%): <b>${best.name}</b> بمتوسط <span class="num">${(key(best)>0?"+":"")+key(best)}R</span> على ${best.trades} صفقة.</p>`:""}
+      ${best?`<p class="sub" style="margin:10px 0 0;color:var(--ink)">${key(best)>0
+        ? `أفضل صيغة بعينة كافية (بعد استبعاد أفضل 5%): <b>${best.name}</b> بمتوسط <span class="num">+${key(best)}R</span> على ${best.trades} صفقة.`
+        : `كل الصيغ سالبة بعد استبعاد أفضل 5% من صفقاتها، أي أن ربحها يعتمد على صفقات قليلة كبيرة. الأقل خسارة: <b>${best.name}</b> (<span class="num">${key(best)}R</span>).`}</p>`:""}
     </div>`; })() : ""}
 
     ${b.halves && b.halves.length===2 ? `<div class="panel">
