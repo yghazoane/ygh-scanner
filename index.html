@@ -444,7 +444,9 @@ function rowHTML(r){
       <div><span>الشورت</span><b class="num">${human(r.short_available)}</b></div>
       <div><span>التقسيم</span><b class="num">${rs?rs.text:"—"}</b></div>
     </div>
-    ${r.gated?`<div class="gatenote">${r.gate_reason==="rr"
+    ${r.gated?`<div class="gatenote">${r.gate_reason==="risk"
+      ? "درجته تؤهله لحالة أعلى، لكن الوقف قريب جداً من السعر فلا يمكن تنفيذ الصفقة واقعياً."
+      : r.gate_reason==="rr"
       ? `درجته تؤهله لحالة أعلى، لكن العائد إلى المخاطرة أقل من 1:${MIN_RR} فبقي في المراقبة.`
       : "درجته تؤهله لحالة أعلى، لكنه بعيد عن الدعم فبقي في المراقبة."}</div>`:""}
   </button></li>`;
@@ -603,7 +605,9 @@ function openSheet(sym, push=true){
 
     ${lowFloat(r)?`<div class="panel warn"><h2>فلوت منخفض جداً</h2><p class="sub" style="margin:0">عدد الأسهم المتاحة للتداول أقل من مليون (<span class="num">${human(r.float)}</span>). مثل هذه الأسهم يسهل تحريكها بمبالغ صغيرة، فتتحرك بعنف في الاتجاهين، وقد تفتح بفجوة تتجاوز وقفك فتكون الخسارة أكبر من المخطط. قلّل حجم الصفقة إن دخلت.</p></div>`:""}
 
-    ${r.gated?(r.gate_reason==="rr"
+    ${r.gated?(r.gate_reason==="risk"
+      ? `<div class="panel warn"><h2>الوقف قريب جداً</h2><p class="sub" style="margin:0">المسافة بين السعر والوقف أقل من 2%. في الأسهم الصغيرة، فرق سعر البيع والشراء وحده قد يضرب وقفاً كهذا، فلا يُعتبر السهم جاهزاً مهما كانت درجته.</p></div>`
+      : r.gate_reason==="rr"
       ? `<div class="panel warn"><h2>العائد لا يستحق المخاطرة</h2><p class="sub" style="margin:0">درجة السهم تؤهله لحالة أعلى، لكن المسافة إلى الهدف أقل من ضعف المسافة إلى الوقف بسعر الدخول الحالي، فبقي في المراقبة المبكرة. قد يصبح مناسباً إذا عاد السعر قرب الدعم.</p></div>`
       : `<div class="panel warn"><h2>بعيد عن الدعم</h2><p class="sub" style="margin:0">درجة السهم تؤهله لحالة أعلى، لكن المنهج يشترط أن يكون في مرحلة اختبار الدعم أو إعادة اختبار ناجحة، فبقي في المراقبة المبكرة.</p></div>`):""}
 
@@ -850,11 +854,11 @@ async function openBacktest(push=true){
 
     ${b.audit && b.audit.best && b.audit.best.length ? `<div class="panel">
       <h2>أفضل الصفقات: هل هي حقيقية؟</h2>
-      <p class="sub">معظم ربح المنهج يأتي من هذه الصفقات. افتح بعضها على TradingView وتأكد أن السهم تحرك فعلاً بهذه النسبة في هذه التواريخ. الصفقات المعلّمة ⚠ فيها قفزة شمعة واحدة أكبر من 100% أو تقع قرب تقسيم عكسي، وقد تكون خطأ في البيانات.</p>
-      ${sim.clean ? `<p class="sub" style="color:var(--ink)">صفقات مشبوهة: <b class="num">${sim.suspects}</b>. وبدونها: متوسط <b class="num ${sim.clean.avg_r>0?"up":"down"}">${(sim.clean.avg_r>0?"+":"")+sim.clean.avg_r}R</b> على ${sim.clean.trades} صفقة، وبعد استبعاد أفضل 5% أيضاً <b class="num ${sim.clean.avg_r_trim>0?"up":"down"}">${sim.clean.avg_r_trim==null?"—":(sim.clean.avg_r_trim>0?"+":"")+sim.clean.avg_r_trim+"R"}</b>.</p>` : ""}
+      <p class="sub">معظم ربح المنهج يأتي من هذه الصفقات. المعلّمة ⚡ فيها قفزة شمعة أكبر من 100% أو تقع قرب تقسيم عكسي؛ تحققنا من عينة منها بمصدر بيانات مستقل (Twelve Data) وكانت قفزات حقيقية بفوليوم ضخم. الرموز روابط لشارت كل سهم على TradingView.</p>
+      ${sim.cost_pct!=null ? `<p class="sub" style="color:var(--ink)">R محسوبة من المخاطرة المخططة يوم الإشارة، بعد خصم تكلفة <span class="num">${sim.cost_pct}%</span> لكل صفقة، وبوقف لا يقل عن <span class="num">${sim.min_risk_pct}%</span> من السعر.</p>` : ""}
       <div class="tblwrap"><table class="tbl"><thead><tr><th>السهم</th><th>الإشارة</th><th>الحركة</th><th>R</th></tr></thead><tbody>
       ${b.audit.best.map(a=>`<tr${a.suspect?` style="background:color-mix(in srgb,var(--watch) 12%,transparent)"`:""}>
-        <td><a class="num" style="color:var(--accent);font-weight:700" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(a.s)}" target="_blank" rel="noopener">${a.s}</a>${a.suspect?`<small class="cnt">⚠ ${a.near_split?"قرب تقسيم":"قفزة "+a.max_jump_pct+"%"}</small>`:""}</td>
+        <td><a class="num" style="color:var(--accent);font-weight:700" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(a.s)}" target="_blank" rel="noopener">${a.s}</a>${a.suspect?`<small class="cnt">⚡ ${a.near_split?"قرب تقسيم":"قفزة "+a.max_jump_pct+"%"}</small>`:""}</td>
         <td class="num">${a.d.slice(0,10)}<small class="cnt">خروج ${(a.exit_d||"—").slice(0,10)}</small></td>
         <td class="num ${a.move_pct>0?"up":"down"}"><b>${a.move_pct!=null?(a.move_pct>0?"+":"")+a.move_pct+"%":"—"}</b><small class="cnt">من ${a.entry!=null?fmtP(a.entry):"—"} إلى ${a.exit_px!=null?fmtP(a.exit_px):"—"}</small></td>
         <td class="num ${a.r>0?"up":"down"}"><b>${(a.r>0?"+":"")+a.r}</b></td></tr>`).join("")}
@@ -869,7 +873,7 @@ async function openBacktest(push=true){
 
     <div class="panel warn">
       <h2>حدود هذا الاختبار</h2>
-      <p class="sub" style="margin:0">الفلوت ورسوم الاقتراض محسوبة بقيمتها الحالية لأن تاريخها غير متوفر مجاناً. والأسهم المختبرة هي المرشحة اليوم من IBKR، فالأسهم التي شُطبت في الفترة غير موجودة، وهذا يجعل النتائج أفضل قليلاً من الحقيقة. وفريم 4 ساعات مبني من شموع الساعة المجانية لآخر سنتين تقريباً. ولا تشمل النتائج العمولات والانزلاق السعري.</p>
+      <p class="sub" style="margin:0">الفلوت ورسوم الاقتراض محسوبة بقيمتها الحالية لأن تاريخها غير متوفر مجاناً. والأسهم المختبرة هي المرشحة اليوم من IBKR، فالأسهم التي شُطبت في الفترة غير موجودة، وهذا يجعل النتائج أفضل قليلاً من الحقيقة. وفريم 4 ساعات مبني من شموع الساعة المجانية لآخر سنتين تقريباً. وتشمل النتائج خصماً تقديرياً للتكلفة (عمولة وفرق سعر) لكل صفقة، لكن الانزلاق الفعلي في الأسهم الصغيرة قد يكون أكبر.</p>
     </div>
     <p class="disclaimer">آخر تشغيل ${m.generated_at_utc} UTC. النتائج السابقة لا تضمن نتائج مستقبلية.</p>`;
   $("#close").onclick = () => history.back();
