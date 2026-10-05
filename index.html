@@ -142,6 +142,7 @@ select{flex:0 0 auto;width:36%;max-width:180px;background:var(--surface);border:
 .tbl th{font-weight:600;color:var(--muted);text-align:start;padding:6px 4px;border-bottom:1px solid var(--line);font-size:12px}
 .tbl td{padding:7px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
 .tbl td.num{display:table-cell;direction:ltr;text-align:right}
+.tbl small.cnt{display:block;color:var(--muted);font-size:11px;font-weight:400;direction:rtl;text-align:start;white-space:nowrap}
 .tblwrap{overflow-x:auto}
 .score b{font-size:17px;color:var(--ink)}
 
@@ -782,6 +783,32 @@ async function openBacktest(push=true){
         ${b.buckets.map(k=>barRow(`<span class="num">${k.range[0]}–${k.range[1]}</span>`, k.d10)).join("")}
       </div>
     </div>
+
+    ${b.conditions ? `<div class="panel">
+      <h2>أي الشروط تساعد فعلاً؟</h2>
+      <p class="sub">متوسط العائد بعد 10 أيام حين يتحقق الشرط كاملاً، مقارنة بحين لا يتحقق. الفرق الموجب يعني أن الشرط يساعد، والسالب أنه يضر. الأرقام بين القوسين عدد الأيام.</p>
+      <div class="tblwrap"><table class="tbl"><thead><tr><th>الشرط</th><th>متحقق</th><th>غير متحقق</th><th>الفرق</th></tr></thead><tbody>
+      ${[...b.conditions].sort((a,c)=>(c.lift??-99)-(a.lift??-99)).map(k=>`<tr>
+        <td style="white-space:normal">${k.title}<small class="cnt">الوزن ${k.weight}</small></td>
+        <td class="num">${v(k.met.mean)}<small class="cnt">${(k.met.n||0).toLocaleString("en")} يوم</small></td>
+        <td class="num">${v(k.not.mean)}<small class="cnt">${(k.not.n||0).toLocaleString("en")} يوم</small></td>
+        <td class="num ${k.lift==null?"":k.lift>0?"up":"down"}"><b>${k.lift==null?"—":(k.lift>0?"+":"")+k.lift}</b></td></tr>`).join("")}
+      </tbody></table></div>
+    </div>` : ""}
+
+    ${b.variants ? (() => {
+      const best = [...b.variants].filter(x=>x.trades>=20&&x.avg_r!=null).sort((a,c)=>c.avg_r-a.avg_r)[0];
+      return `<div class="panel">
+      <h2>مقارنة صيغ المنهج</h2>
+      <p class="sub">نفس الإشارات بقواعد مختلفة. R متوسط ربح الصفقة بمضاعفات المخاطرة. الصيغة التي صفقاتها أقل من 20 لا يُعتمد على نتيجتها.</p>
+      <div class="tblwrap"><table class="tbl"><thead><tr><th>الصيغة</th><th>صفقات</th><th>رابحة</th><th>متوسط</th></tr></thead><tbody>
+      ${b.variants.map(x=>`<tr${best&&x.key===best.key?` style="background:color-mix(in srgb,var(--ready) 10%,transparent)"`:""}>
+        <td style="white-space:normal">${x.name}</td><td>${x.trades}</td>
+        <td class="num">${x.win_rate==null?"—":x.win_rate+"%"}<small class="cnt">الوقف ${x.stop_rate==null?"—":x.stop_rate+"%"}</small></td>
+        <td class="num ${x.avg_r>0?"up":x.avg_r<0?"down":""}"><b>${x.avg_r==null?"—":(x.avg_r>0?"+":"")+x.avg_r+"R"}</b><small class="cnt">مجموع ${x.total_r==null?"—":(x.total_r>0?"+":"")+x.total_r+"R"}</small></td></tr>`).join("")}
+      </tbody></table></div>
+      ${best?`<p class="sub" style="margin:10px 0 0;color:var(--ink)">أفضل صيغة بعينة كافية: <b>${best.name}</b> بمتوسط <span class="num">${(best.avg_r>0?"+":"")+best.avg_r}R</span> على ${best.trades} صفقة.</p>`:""}
+    </div>`; })() : ""}
 
     <div class="panel">
       <h2>آخر الإشارات ونتيجتها</h2>
