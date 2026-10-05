@@ -120,17 +120,33 @@ select{flex:0 0 auto;width:36%;max-width:180px;background:var(--surface);border:
 .ext{display:block;font-size:11.5px;font-weight:600;margin-top:3px;padding:1px 7px;border-radius:20px;
   background:var(--sunk);white-space:nowrap}
 .ext.warn{background:color-mix(in srgb,var(--down) 12%,transparent);color:var(--down)}
-.r2{display:flex;align-items:center;gap:10px;margin:10px 0 8px}
+.r2{display:flex;align-items:center;gap:8px;margin:10px 0 8px}
 .pill{font-size:12.5px;font-weight:600;padding:3px 10px;border-radius:20px;white-space:nowrap}
 .pill.ready{background:color-mix(in srgb,var(--ready) 15%,transparent);color:var(--ready)}
 .pill.near{background:color-mix(in srgb,var(--near) 15%,transparent);color:var(--near)}
 .pill.watch{background:color-mix(in srgb,var(--watch) 16%,transparent);color:var(--watch)}
 .pill.none{background:var(--sunk);color:var(--none)}
 .score{font-size:13px;color:var(--muted);white-space:nowrap}
+.rr{flex:none;font-size:12px;font-weight:600;padding:2px 8px;border-radius:20px;white-space:nowrap;direction:ltr;background:var(--sunk)}
+.rr.good{color:var(--ready)} .rr.mid{color:var(--watch)} .rr.bad{color:var(--down)}
+.top-actions{display:flex;gap:8px}
+.bt-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.bt-cards .kv b{font-size:20px}
+.bars{display:grid;gap:8px}
+.bar{display:grid;grid-template-columns:62px 1fr 64px;align-items:center;gap:10px;font-size:13px}
+.bar .track{position:relative;height:14px;background:var(--sunk);border-radius:4px;overflow:hidden}
+.bar .track i{position:absolute;top:0;bottom:0;border-radius:4px}
+.bar .track .zero{position:absolute;top:-2px;bottom:-2px;width:1px;background:var(--muted)}
+.bar small{color:var(--muted);display:block;font-size:11px}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{font-weight:600;color:var(--muted);text-align:start;padding:6px 4px;border-bottom:1px solid var(--line);font-size:12px}
+.tbl td{padding:7px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td.num{display:table-cell;direction:ltr;text-align:right}
+.tblwrap{overflow-x:auto}
 .score b{font-size:17px;color:var(--ink)}
 
 /* شريط الدرجة: كل شرط قطعة بعرض وزنه */
-.strip{flex:1;display:flex;gap:2px;height:8px;direction:rtl;min-width:80px}
+.strip{flex:1;display:flex;gap:2px;height:8px;direction:rtl;min-width:30px}
 .strip i{display:block;height:100%;border-radius:2px;background:var(--line)}
 .strip i.f{background:var(--c)}
 .strip i.h{background:repeating-linear-gradient(-45deg,var(--c) 0 3px,color-mix(in srgb,var(--c) 30%,transparent) 3px 6px)}
@@ -180,7 +196,8 @@ canvas{width:100%;height:280px;display:block;touch-action:pan-y}
 .kv b.num{display:block;text-align:right}
 .kv b{font-size:15px;font-weight:600}
 .kv small{display:block;color:var(--muted);font-size:11.5px}
-.kv b span,.r3 b span{display:inline-block;color:inherit;font-size:inherit}
+.kv small.n{direction:ltr;text-align:right}
+.kv b span,.r3 b span,.kv small span{display:inline-block;color:inherit;font-size:inherit}
 .conds{list-style:none;margin:0;padding:0}
 .conds li{display:grid;grid-template-columns:30px 1fr auto;gap:10px;align-items:start;padding:11px 0}
 .conds li+li{border-top:1px solid var(--line)}
@@ -207,9 +224,14 @@ canvas{width:100%;height:280px;display:block;touch-action:pan-y}
       <h1>فاحص <b>YGH</b></h1>
       <p>أسهم السوق الأمريكي بمنهج YGH</p>
     </div>
+    <div class="top-actions">
+    <button class="icon-btn" id="btBtn" aria-label="الاختبار التاريخي" title="الاختبار التاريخي">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+    </button>
     <button class="icon-btn" id="reload" aria-label="تحديث النتائج">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
     </button>
+    </div>
   </header>
 
   <section class="scanbar" aria-live="polite">
@@ -239,6 +261,7 @@ canvas{width:100%;height:280px;display:block;touch-action:pan-y}
       <option value="borrow">رسوم الاقتراض</option>
       <option value="float">الفلوت الأقل</option>
       <option value="chg">التغير اليومي</option>
+      <option value="rr">العائد/المخاطرة</option>
       <option value="gap">الفجوة</option>
     </select>
   </div>
@@ -351,6 +374,10 @@ function extWarn(r){
   return null;
 }
 
+const MIN_RR = 2;
+function rrClass(x){ return x==null ? "" : x>=MIN_RR ? "good" : x>=1.5 ? "mid" : "bad"; }
+const rrText = x => x==null ? "—" : "1:" + (x>=10 ? Math.round(x) : x.toFixed(2).replace(/0$/,""));
+
 /* ---------- شريط الدرجة ---------- */
 function stripHTML(r, big){
   const c = `var(${STATUS_COLOR[r.status]})`;
@@ -379,6 +406,7 @@ function rows(){
     chg:(a,b)=>b.change_pct-a.change_pct,
     dist:(a,b)=>Math.abs(distToZone(a)??9)-Math.abs(distToZone(b)??9),
     gap:(a,b)=>(b.ext?b.ext.gap_pct:-1e9)-(a.ext?a.ext.gap_pct:-1e9),
+    rr:(a,b)=>((b.risk&&b.risk.rr)??-1)-((a.risk&&a.risk.rr)??-1),
   }[state.sort];
   return [...rs].sort(by);
 }
@@ -402,6 +430,7 @@ function rowHTML(r){
       <span class="pill ${r.status}">${r.status_label}</span>
       ${stripHTML(r)}
       <span class="score"><b>${Math.round(r.score)}</b>/100</span>
+      ${r.risk&&r.risk.rr!=null?`<span class="rr ${rrClass(r.risk.rr)}" title="العائد إلى المخاطرة">${rrText(r.risk.rr)}</span>`:""}
     </div>
     <div class="r3">
       <div><span>المرحلة</span><b>${r.stage}</b></div>
@@ -411,7 +440,9 @@ function rowHTML(r){
       <div><span>الشورت</span><b class="num">${human(r.short_available)}</b></div>
       <div><span>التقسيم</span><b class="num">${rs?rs.text:"—"}</b></div>
     </div>
-    ${r.gated?`<div class="gatenote">درجته تؤهله لحالة أعلى، لكنه بعيد عن الدعم فبقي في المراقبة.</div>`:""}
+    ${r.gated?`<div class="gatenote">${r.gate_reason==="rr"
+      ? `درجته تؤهله لحالة أعلى، لكن العائد إلى المخاطرة أقل من 1:${MIN_RR} فبقي في المراقبة.`
+      : "درجته تؤهله لحالة أعلى، لكنه بعيد عن الدعم فبقي في المراقبة."}</div>`:""}
   </button></li>`;
 }
 
@@ -458,6 +489,8 @@ function drawChart(cv, r, hoverIdx){
   if(z){ lo = Math.min(lo, z[0]); hi = Math.max(hi, z[1]); }
   if(res && res < hi*1.25) hi = Math.max(hi, res);
   if(r.ext){ lo = Math.min(lo, r.ext.price); hi = Math.max(hi, r.ext.price); }
+  const K = r.risk;
+  if(K){ lo = Math.min(lo, K.stop); if(K.t1 && K.t1 < hi*1.3) hi = Math.max(hi, K.t1); }
   if(maj && maj.zone_low > lo*0.8) lo = Math.min(lo, maj.zone_low);
   const pad = (hi-lo)*0.06; lo-=pad; hi+=pad;
   const y = v => padT + (hi-v)/(hi-lo)*(H-padT-padB);
@@ -483,6 +516,13 @@ function drawChart(cv, r, hoverIdx){
   if(res && res<=hi){
     g.setLineDash([6,4]); g.strokeStyle = col("--down"); g.lineWidth=1.2;
     g.beginPath(); g.moveTo(0,y(res)); g.lineTo(plotW,y(res)); g.stroke(); g.setLineDash([]);
+  }
+  // الوقف
+  if(K){
+    g.strokeStyle = col("--down"); g.lineWidth=1.6;
+    g.beginPath(); g.moveTo(0,y(K.stop)); g.lineTo(plotW,y(K.stop)); g.stroke();
+    g.fillStyle = col("--down"); g.fillRect(plotW+1, y(K.stop)-9, axisW-1, 18);
+    g.fillStyle = "#fff"; g.textAlign="left"; g.textBaseline="middle"; g.fillText(fmtP(K.stop), plotW+6, y(K.stop));
   }
   // الشموع
   bars.forEach((b,i)=>{
@@ -557,7 +597,32 @@ function openSheet(sym, push=true){
       <div class="legend"><span>الشروط الفنية ${+techPts.toFixed(1)} / 70</span><span>شروط البيانات ${+dataPts.toFixed(1)} / 30</span></div>
     </div>
 
-    ${r.gated?`<div class="panel warn"><h2>بعيد عن الدعم</h2><p class="sub" style="margin:0">درجة السهم تؤهله لحالة أعلى، لكن المنهج يشترط أن يكون في مرحلة اختبار الدعم أو إعادة اختبار ناجحة، فبقي في المراقبة المبكرة.</p></div>`:""}
+    ${r.gated?(r.gate_reason==="rr"
+      ? `<div class="panel warn"><h2>العائد لا يستحق المخاطرة</h2><p class="sub" style="margin:0">درجة السهم تؤهله لحالة أعلى، لكن المسافة إلى الهدف أقل من ضعف المسافة إلى الوقف بسعر الدخول الحالي، فبقي في المراقبة المبكرة. قد يصبح مناسباً إذا عاد السعر قرب الدعم.</p></div>`
+      : `<div class="panel warn"><h2>بعيد عن الدعم</h2><p class="sub" style="margin:0">درجة السهم تؤهله لحالة أعلى، لكن المنهج يشترط أن يكون في مرحلة اختبار الدعم أو إعادة اختبار ناجحة، فبقي في المراقبة المبكرة.</p></div>`):""}
+
+    ${r.risk ? (() => {
+      const k = r.risk, pc = (a,b) => fmtPct((a/b-1)*100);
+      const t2 = k.t2 ? `<div class="kv"><span>الهدف الثاني</span><b class="num">${fmtP(k.t2)}</b><small class="n">${pc(k.t2,k.entry)}</small></div>` : "";
+      const extRR = r.ext && k.t1 && r.ext.price>k.stop && r.ext.price<k.t1 ? (k.t1-r.ext.price)/(r.ext.price-k.stop) : null;
+      const verdict = k.rr==null ? (k.t1 ? "السعر الحالي تجاوز الهدف أو نزل تحت الوقف، فلا توجد صفقة صالحة الآن." : "لا توجد مقاومة واضحة فوق السعر في الفترة، فالهدف غير محدد.")
+        : k.rr>=MIN_RR ? `العائد المتوقع يساوي ${k.rr.toFixed(1)} أضعاف المخاطرة، وهذا ضمن الحد الذي يشترطه المنهج (1:${MIN_RR}).`
+        : `العائد المتوقع أقل من ضعف المخاطرة بالسعر الحالي.${k.rr_ideal!=null&&k.rr_ideal>=MIN_RR?` لكن لو تم الدخول قرب أعلى منطقة الدعم (${fmtP(k.ideal_entry)}) تصبح النسبة ${rrText(k.rr_ideal)}.`:""}`;
+      return `<div class="panel">
+        <h2>خطة الصفقة</h2>
+        <p class="sub">الوقف تحت قاع منطقة الدعم، والهدف عند أقرب مقاومة. أرقام استرشادية تساعدك على التخطيط، وليست توصية.</p>
+        <div class="grid2">
+          <div class="kv"><span>الدخول (السعر الحالي)</span><b class="num">${fmtP(k.entry)}</b></div>
+          <div class="kv"><span>العائد إلى المخاطرة</span><b class="num rr ${rrClass(k.rr)}" style="background:none;padding:0;font-size:15px">${rrText(k.rr)}</b></div>
+          <div class="kv"><span>الوقف</span><b class="num down">${fmtP(k.stop)}</b><small class="n">${k.risk_pct!=null?"-"+k.risk_pct.toFixed(2)+"%":""}</small></div>
+          <div class="kv"><span>الهدف الأول</span><b class="num up">${fmtP(k.t1)}</b><small class="n">${k.reward_pct!=null?"+"+k.reward_pct.toFixed(2)+"%":""}</small></div>
+          <div class="kv"><span>الدخول المثالي</span><b class="num">${fmtP(k.ideal_entry)}</b><small>العائد/المخاطرة ${rrText(k.rr_ideal)}</small></div>
+          ${t2}
+        </div>
+        ${extRR!=null?`<p class="sub" style="margin:10px 0 0">بسعر ${EXT_NAME[r.ext.session]} (<span class="num">${fmtP(r.ext.price)}</span>) تصبح النسبة <b class="num">${rrText(extRR)}</b>.</p>`:""}
+        <p class="sub" style="margin:8px 0 0;color:var(--ink)">${verdict}</p>
+      </div>`;
+    })() : ""}
 
     ${r.ext ? (() => {
       const e = r.ext, w = extWarn(r), name = EXT_IN[e.session];
@@ -591,7 +656,8 @@ function openSheet(sym, push=true){
       <div class="keys">
         <span><i style="background:var(--zone);height:10px"></i>منطقة الدعم</span>
         <span><i style="background:var(--ready)"></i>الدعم</span>
-        <span><i style="background:var(--down)"></i>المقاومة</span>
+        <span><i style="background:var(--down);opacity:.6"></i>المقاومة (الهدف)</span>
+        ${r.risk?`<span><i style="background:var(--down);height:4px"></i>الوقف</span>`:""}
         <span><i style="background:var(--ma20)"></i>MA20</span>
         <span><i style="background:var(--ma50)"></i>MA50</span>
         ${r.ext?`<span><i style="background:var(--watch)"></i>سعر ${EXT_NAME[r.ext.session]}</span>`:""}
@@ -660,9 +726,76 @@ function closeSheet(){
 }
 window.addEventListener("popstate", ()=>{
   const s = location.hash.slice(1);
-  if(s && state.data) openSheet(s, false); else closeSheet();
+  if(s==="backtest") openBacktest(false);
+  else if(s && state.data) openSheet(s, false); else closeSheet();
 });
 window.addEventListener("resize", ()=>{ const s=$("#sheet"); if(s.classList.contains("open") && s._repaint) s._repaint(); });
+
+/* ---------- الاختبار التاريخي ---------- */
+async function openBacktest(push=true){
+  const body = $("#sheetBody");
+  body.innerHTML = `<div class="shead"><button class="icon-btn" id="close" aria-label="رجوع"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button><div class="t"><b style="direction:rtl">الاختبار التاريخي</b><div>منهج YGH على الفريم اليومي</div></div></div><div class="panel"><p class="sub" style="margin:0">جارٍ التحميل…</p></div>`;
+  const sheet = $("#sheet"); sheet.classList.add("open"); sheet.scrollTop = 0; document.body.style.overflow = "hidden";
+  if(push) history.pushState({bt:1}, "", "#backtest");
+  $("#close").onclick = () => history.back();
+  let b;
+  try{ const res = await fetch("backtest.json?t="+Date.now(), {cache:"no-store"}); if(!res.ok) throw 0; b = await res.json(); }
+  catch{ body.querySelector(".panel").innerHTML = `<h2>لم يُشغّل الاختبار بعد</h2><p class="sub" style="margin:0">شغّل «الاختبار التاريخي» من تبويب Actions في مستودع المحرك، وستظهر النتائج هنا بعد اكتماله (حوالي 20 دقيقة).</p>`; return; }
+
+  const m = b.meta, base = b.baseline["10"] || b.baseline[10], sim = b.simulation, sg = b.signals;
+  const v = (x, suf="%") => x==null ? "—" : (x>0&&suf==="%"?"+":"") + x + suf;
+  const maxAbs = Math.max(1, ...b.buckets.map(k=>Math.abs(k.d10.mean||0)), Math.abs(base.mean||0));
+  const barRow = (label, st, sub) => {
+    if(!st || !st.n) return `<div class="bar"><span>${label}</span><div class="track"></div><span>—</span></div>`;
+    const w = Math.abs(st.mean)/maxAbs*50, pos = st.mean>=0;
+    return `<div class="bar"><span>${label}<small>${st.n.toLocaleString("en")} يوم</small></span>
+      <div class="track"><span class="zero" style="left:50%"></span><i style="${pos?"left:50%":"right:50%"};width:${w}%;background:var(${pos?"--up":"--down"})"></i></div>
+      <span style="text-align:left"><b class="num" style="font-weight:600">${v(st.mean)}</b><small>صاعد <span class="num">${st.win}%</span></small></span></div>`;
+  };
+  const edge = sg.d10 && sg.d10.n && base.n ? (sg.d10.mean - base.mean) : null;
+  const verdict = !sim.trades ? "لا توجد صفقات كافية للحكم بعد."
+    : sim.avg_r > 0.15 && edge > 0 ? "النتائج إيجابية: إشارات المنهج حققت متوسط ربح بالمخاطرة، وتفوقت على متوسط السوق في نفس الأسهم. ما زالت تحتاج حذراً بسبب القيود المذكورة أدناه."
+    : sim.avg_r > 0 ? "النتائج متواضعة: متوسط الصفقات موجب لكن بفارق صغير، فلا تكفي للاعتماد على المنهج وحده."
+    : "النتائج سلبية: إشارات المنهج لم تحقق ربحاً في المتوسط خلال هذه الفترة. يحتاج المنهج مراجعة قبل الاعتماد عليه بأموال حقيقية.";
+  const recent = (b.recent||[]).slice(0,30).map(x=>`<tr><td><b class="num">${x.s}</b></td><td class="num">${x.d}</td><td>${Math.round(x.score)}</td>
+    <td class="num">${rrText(x.rr)}</td><td class="num ${x.sim?(x.sim.r>0?"up":"down"):""}">${x.sim?(x.sim.r>0?"+":"")+x.sim.r+"R":"—"}</td>
+    <td>${x.sim?{target:"الهدف",stop:"الوقف",time:"انتهت المدة"}[x.sim.exit]:"—"}</td></tr>`).join("");
+
+  body.innerHTML = body.querySelector(".shead").outerHTML + `
+    <div class="panel">
+      <h2>الخلاصة</h2>
+      <p class="sub">${m.from} إلى ${m.to} • ${m.symbols} سهماً • ${m.evaluations.toLocaleString("en")} يوم-سهم مُقيّم</p>
+      <div class="bt-cards">
+        <div class="kv"><span>إشارات قريب/جاهز</span><b class="num">${sg.count}</b><small>بعد البوابتين، وبفاصل ${m.cooldown} أيام لنفس السهم</small></div>
+        <div class="kv"><span>متوسط الصفقة</span><b class="num ${sim.avg_r>0?"up":"down"}">${sim.trades?(sim.avg_r>0?"+":"")+sim.avg_r+"R":"—"}</b><small>R = مقدار المخاطرة حتى الوقف</small></div>
+        <div class="kv"><span>الصفقات الرابحة</span><b class="num">${sim.trades?sim.win_rate+"%":"—"}</b><small>وصلت الهدف <span class="num">${sim.target_rate??"—"}%</span>، والوقف <span class="num">${sim.stop_rate??"—"}%</span></small></div>
+        <div class="kv"><span>عائد 10 أيام للإشارات</span><b class="num ${sg.d10.mean>0?"up":"down"}">${v(sg.d10.mean)}</b><small>مقابل <span class="num">${v(base.mean)}</span> لكل الأيام</small></div>
+      </div>
+      <p class="sub" style="margin:12px 0 0;color:var(--ink)">${verdict}</p>
+    </div>
+
+    <div class="panel">
+      <h2>هل الدرجة الأعلى تعني صعوداً أكبر؟</h2>
+      <p class="sub">متوسط العائد بعد 10 أيام تداول حسب الدرجة الفنية (من 70)، مقارنة بكل الأيام. إن كان المنهج يعمل، يجب أن تميل الأشرطة للأخضر وتطول كلما ارتفعت الدرجة.</p>
+      <div class="bars">
+        ${barRow("كل الأيام", base)}
+        ${b.buckets.map(k=>barRow(`<span class="num">${k.range[0]}–${k.range[1]}</span>`, k.d10)).join("")}
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>آخر الإشارات ونتيجتها</h2>
+      <p class="sub">الدخول بافتتاح اليوم التالي، والخروج عند الهدف أو الوقف أو بعد ${m.max_hold} يوماً.</p>
+      <div class="tblwrap"><table class="tbl"><thead><tr><th>السهم</th><th>التاريخ</th><th>الدرجة</th><th>ع/م</th><th>النتيجة</th><th>الخروج</th></tr></thead><tbody>${recent||`<tr><td colspan="6">لا توجد إشارات.</td></tr>`}</tbody></table></div>
+    </div>
+
+    <div class="panel warn">
+      <h2>حدود هذا الاختبار</h2>
+      <p class="sub" style="margin:0">الفلوت ورسوم الاقتراض محسوبة بقيمتها الحالية لأن تاريخها غير متوفر مجاناً. والأسهم المختبرة هي المرشحة اليوم من IBKR، فالأسهم التي شُطبت في الفترة غير موجودة، وهذا يجعل النتائج أفضل قليلاً من الحقيقة. والاختبار على الفريم اليومي فقط، لأن بيانات الساعة المجانية لا تكفي لفترة طويلة. ولا تشمل النتائج العمولات والانزلاق السعري.</p>
+    </div>
+    <p class="disclaimer">آخر تشغيل ${m.generated_at_utc} UTC. النتائج السابقة لا تضمن نتائج مستقبلية.</p>`;
+  $("#close").onclick = () => history.back();
+}
 
 /* ---------- التحميل ---------- */
 async function load(){
@@ -682,7 +815,8 @@ async function load(){
   const n = nextScan(); $("#nextScan").textContent = n ? whenText(n) : "—";
   btn.disabled = false; btn.style.opacity=1;
   render();
-  const s = location.hash.slice(1); if(s && state.data) openSheet(s, false);
+  const s = location.hash.slice(1);
+  if(s==="backtest") openBacktest(false); else if(s && state.data) openSheet(s, false);
 }
 
 /* ---------- الأحداث ---------- */
@@ -701,6 +835,7 @@ $("#showAll").onclick = e => { state.showAll = !state.showAll; e.currentTarget.s
 $("#more").onclick = () => { state.shown += PAGE; render(); };
 $("#list").addEventListener("click", e=>{ const b = e.target.closest(".row"); if(b) openSheet(b.dataset.s); });
 $("#reload").onclick = load;
+$("#btBtn").onclick = () => openBacktest();
 load();
 </script>
 </body>
