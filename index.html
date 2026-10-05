@@ -91,11 +91,11 @@ button{cursor:pointer}
 .search{flex:1;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:0 12px}
 .search svg{width:18px;height:18px;color:var(--muted);flex:none}
 .search input{border:0;background:transparent;outline:0;width:100%;padding:11px 0}
-select{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:0 10px;min-width:0}
+select{flex:0 0 auto;width:36%;max-width:180px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:0 10px}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 .chip{border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:5px 12px;font-size:13px;color:var(--muted)}
 .chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
-.resultline{display:flex;justify-content:space-between;align-items:baseline;margin:2px 4px 8px;font-size:14px}
+.resultline{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:2px 12px;margin:2px 4px 8px;font-size:14px}
 .resultline b{font-size:16px}
 .resultline span{color:var(--muted);font-size:12px}
 
@@ -115,6 +115,9 @@ select{background:var(--surface);border:1px solid var(--line);border-radius:14px
 .px b{font-size:18px;font-weight:600;direction:ltr;display:block}
 .chg{font-size:13px;font-weight:600;direction:ltr;display:block}
 .up{color:var(--up)} .down{color:var(--down)}
+.ext{display:block;font-size:11.5px;font-weight:600;margin-top:3px;padding:1px 7px;border-radius:20px;
+  background:var(--sunk);white-space:nowrap}
+.ext.warn{background:color-mix(in srgb,var(--down) 12%,transparent);color:var(--down)}
 .r2{display:flex;align-items:center;gap:10px;margin:10px 0 8px}
 .pill{font-size:12.5px;font-weight:600;padding:3px 10px;border-radius:20px;white-space:nowrap}
 .pill.ready{background:color-mix(in srgb,var(--ready) 15%,transparent);color:var(--ready)}
@@ -172,7 +175,10 @@ canvas{width:100%;height:280px;display:block;touch-action:pan-y}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .kv{background:var(--sunk);border-radius:var(--radius-sm);padding:9px 11px}
 .kv span{display:block;color:var(--muted);font-size:12px}
+.kv b.num{display:block;text-align:right}
 .kv b{font-size:15px;font-weight:600}
+.kv small{display:block;color:var(--muted);font-size:11.5px}
+.kv b span,.r3 b span{display:inline-block;color:inherit;font-size:inherit}
 .conds{list-style:none;margin:0;padding:0}
 .conds li{display:grid;grid-template-columns:30px 1fr auto;gap:10px;align-items:start;padding:11px 0}
 .conds li+li{border-top:1px solid var(--line)}
@@ -231,6 +237,7 @@ canvas{width:100%;height:280px;display:block;touch-action:pan-y}
       <option value="borrow">رسوم الاقتراض</option>
       <option value="float">الفلوت الأقل</option>
       <option value="chg">التغير اليومي</option>
+      <option value="gap">الفجوة</option>
     </select>
   </div>
   <div class="chips">
@@ -250,7 +257,7 @@ canvas{width:100%;height:280px;display:block;touch-action:pan-y}
 </section>
 
 <script>
-const SCHEDULE_UTC = [[12, 5], [21, 15]];   // نفس مواعيد scan.yml
+const SCHEDULE_UTC = [[12, 45], [17, 40], [18, 40], [21, 15]];   // نفس مواعيد scan.yml
 const PAGE = 40;
 const COUNTRIES = {
   "China":["🇨🇳","الصين",true], "Hong Kong":["🇭🇰","هونغ كونغ",true], "Taiwan":["🇹🇼","تايوان"],
@@ -314,6 +321,22 @@ function distToZone(r){
   if(p>hi) return (p-hi)/hi; if(p<lo) return (p-lo)/lo; return 0;
 }
 
+const EXT_NAME = {pre:"قبل الافتتاح", post:"بعد الإغلاق"};
+const fmtX = x => "×" + (x>=10 ? Math.round(x) : x.toFixed(1));
+function rvolLabel(x){
+  if(x==null) return "لا توجد بيانات كافية للمقارنة";
+  if(x>=3) return "اهتمام قوي جداً مقارنة بالمعتاد";
+  if(x>=1.5) return "أعلى من المعتاد";
+  if(x>=0.7) return "قريب من المعتاد";
+  return "أضعف من المعتاد";
+}
+function extWarn(r){
+  const e = r.ext; if(!e) return null;
+  if(r.support_zone && e.price < r.support_zone[0]) return "below";
+  if(r.resistance && e.price > r.resistance) return "above";
+  return null;
+}
+
 /* ---------- شريط الدرجة ---------- */
 function stripHTML(r, big){
   const c = `var(${STATUS_COLOR[r.status]})`;
@@ -341,6 +364,7 @@ function rows(){
     float:(a,b)=>(a.float??Infinity)-(b.float??Infinity),
     chg:(a,b)=>b.change_pct-a.change_pct,
     dist:(a,b)=>Math.abs(distToZone(a)??9)-Math.abs(distToZone(b)??9),
+    gap:(a,b)=>(b.ext?b.ext.gap_pct:-1e9)-(a.ext?a.ext.gap_pct:-1e9),
   }[state.sort];
   return [...rs].sort(by);
 }
@@ -357,7 +381,8 @@ function rowHTML(r){
           ${state.favs.has(r.symbol)?`<span class="star" aria-label="مفضل">★</span>`:""}</div>
         <div class="name">${r.name||""}</div>
       </div>
-      <div class="px"><b>$${fmtP(r.price)}</b><span class="chg ${chgCls}">${fmtPct(r.change_pct)}</span></div>
+      <div class="px"><b>$${fmtP(r.price)}</b><span class="chg ${chgCls}">${fmtPct(r.change_pct)}</span>
+        ${r.ext?`<span class="ext ${extWarn(r)?"warn":(r.ext.gap_pct>=0?"up":"down")}">${extWarn(r)?"⚠ ":""}${EXT_NAME[r.ext.session]} <span class="num">${fmtPct(r.ext.gap_pct)}</span>${r.ext.rvol!=null?` <span class="num">${fmtX(r.ext.rvol)}</span>`:""}</span>`:""}</div>
     </div>
     <div class="r2">
       <span class="pill ${r.status}">${r.status_label}</span>
@@ -386,7 +411,8 @@ function render(){
   const rs = rows();
   const list = $("#list"), empty = $("#emptyBox");
   $("#count").textContent = d ? `${rs.length} ${rs.length===1?"سهم":"أسهم"} تطابق الفلاتر` : "—";
-  $("#tfnote").textContent = d ? `من ${d.meta.scanned} سهماً تم فحصها` : "";
+  $("#tfnote").textContent = d ? `من ${d.meta.scanned} سهماً تم فحصها` +
+    (d.meta.extended_session ? ` • حركة ${EXT_NAME[d.meta.extended_session]} لـ ${d.meta.extended_count}` : "") : "";
   list.innerHTML = rs.slice(0, state.shown).map(rowHTML).join("");
   list.hidden = rs.length===0;
   $("#more").hidden = rs.length <= state.shown;
@@ -413,6 +439,7 @@ function drawChart(cv, r, hoverIdx){
   const z = r.support_zone, res = r.resistance, maj = r.major_support;
   if(z){ lo = Math.min(lo, z[0]); hi = Math.max(hi, z[1]); }
   if(res && res < hi*1.25) hi = Math.max(hi, res);
+  if(r.ext){ lo = Math.min(lo, r.ext.price); hi = Math.max(hi, r.ext.price); }
   if(maj && maj.zone_low > lo*0.8) lo = Math.min(lo, maj.zone_low);
   const pad = (hi-lo)*0.06; lo-=pad; hi+=pad;
   const y = v => padT + (hi-v)/(hi-lo)*(H-padT-padB);
@@ -458,6 +485,14 @@ function drawChart(cv, r, hoverIdx){
   g.fillStyle = col("--accent"); const ly = y(last.c);
   g.fillRect(plotW+1, ly-9, axisW-1, 18);
   g.fillStyle = col("--accent-ink"); g.fillText(fmtP(last.c), plotW+6, ly);
+  // سعر ما قبل الافتتاح / ما بعد الإغلاق
+  if(r.ext){
+    const ey = y(r.ext.price);
+    g.setLineDash([2,3]); g.strokeStyle = col("--watch"); g.lineWidth=1.4;
+    g.beginPath(); g.moveTo(0,ey); g.lineTo(plotW,ey); g.stroke(); g.setLineDash([]);
+    g.fillStyle = col("--watch"); g.fillRect(plotW+1, ey-9, axisW-1, 18);
+    g.fillStyle = "#fff"; g.fillText(fmtP(r.ext.price), plotW+6, ey);
+  }
   // مؤشر اللمس
   if(hoverIdx!=null){
     g.strokeStyle = col("--muted"); g.setLineDash([3,3]); g.beginPath(); g.moveTo(x(hoverIdx),padT); g.lineTo(x(hoverIdx),H-padB); g.stroke(); g.setLineDash([]);
@@ -505,6 +540,30 @@ function openSheet(sym, push=true){
 
     ${r.gated?`<div class="panel warn"><h2>بعيد عن الدعم</h2><p class="sub" style="margin:0">درجة السهم تؤهله لحالة أعلى، لكن المنهج يشترط أن يكون في مرحلة اختبار الدعم أو إعادة اختبار ناجحة، فبقي في المراقبة المبكرة.</p></div>`:""}
 
+    ${r.ext ? (() => {
+      const e = r.ext, w = extWarn(r), name = EXT_NAME[e.session];
+      const z = r.support_zone;
+      const nd = z ? (e.price>z[1] ? (e.price-z[1])/z[1] : e.price<z[0] ? (e.price-z[0])/z[0] : 0) : null;
+      const msg = w==="below" ? `السعر ${name} تحت منطقة الدعم، فقد يُكسر الدعم عند الافتتاح. انتظر عودة السعر فوق المنطقة قبل أي قرار.`
+        : w==="above" ? `السعر ${name} تجاوز أقرب مقاومة، فنقطة الدخول قرب الدعم فاتت غالباً، والمستويات ستتغير بعد الافتتاح.`
+        : e.gap_pct <= -5 ? `فجوة هبوط واضحة، لكن السعر ما زال فوق منطقة الدعم. راقب سلوكه عند الدعم بعد الافتتاح.`
+        : e.gap_pct >= 5 && e.rvol!=null && e.rvol < 1 ? `فجوة صعود لكن بفوليوم أضعف من المعتاد، وهذا يجعلها أقل موثوقية وقد تتلاشى بعد الافتتاح.`
+        : e.gap_pct >= 5 ? `فجوة صعود واضحة والسعر ما زال تحت المقاومة. انتبه أن الدخول بعيداً عن الدعم يرفع المخاطرة.`
+        : `الحركة ${name} محدودة، والتقييم الفني ما زال صالحاً كما هو.`;
+      return `<div class="panel ${w?"warn":""}">
+        <h2>الحركة ${name}</h2>
+        <p class="sub">آخر سعر عند ${e.time_ny} بتوقيت نيويورك، مقارنة بإغلاق <span class="num">${fmtP(e.ref_close)}</span>. لا تدخل في حساب الدرجة.</p>
+        <div class="grid2">
+          <div class="kv"><span>السعر</span><b class="num">$${fmtP(e.price)}</b></div>
+          <div class="kv"><span>الفجوة</span><b class="num ${e.gap_pct>=0?"up":"down"}">${fmtPct(e.gap_pct)}</b></div>
+          <div class="kv"><span>المسافة الجديدة عن الدعم</span><b class="num">${nd==null?"—":(nd===0?"داخل المنطقة":fmtPct(nd*100))}</b></div>
+          <div class="kv"><span>الفوليوم النسبي</span><b class="num">${e.rvol!=null?fmtX(e.rvol):"—"}</b><small>${rvolLabel(e.rvol)}</small></div>
+        </div>
+        <p class="sub" style="margin:10px 0 0">الفوليوم <span class="num">${human(e.volume)}</span> سهم حتى الآن، مقابل متوسط <span class="num">${human(e.avg_volume)}</span> في نفس الوقت خلال آخر ${e.days} أيام تداول.</p>
+        <p class="sub" style="margin:8px 0 0;color:var(--ink)">${msg}</p>
+      </div>`;
+    })() : ""}
+
     <div class="panel">
       <h2>الشارت على فريم ${tfName}</h2>
       <div class="chartinfo" id="cinfo"></div>
@@ -515,6 +574,7 @@ function openSheet(sym, push=true){
         <span><i style="background:var(--down)"></i>المقاومة</span>
         <span><i style="background:var(--ma20)"></i>MA20</span>
         <span><i style="background:var(--ma50)"></i>MA50</span>
+        ${r.ext?`<span><i style="background:var(--watch)"></i>سعر ${EXT_NAME[r.ext.session]}</span>`:""}
       </div>
     </div>
 
