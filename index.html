@@ -153,6 +153,16 @@ select{flex:0 0 auto;width:36%;max-width:180px;background:var(--surface);border:
 .strip i.f{background:var(--c)}
 .strip i.h{background:repeating-linear-gradient(-45deg,var(--c) 0 3px,color-mix(in srgb,var(--c) 30%,transparent) 3px 6px)}
 .strip i.gap{flex:0 0 5px!important;background:transparent}
+.rsiv{flex:none;display:flex;flex-direction:column;align-items:center;line-height:1.1;min-width:42px}
+.rsiv b{font-size:18px;font-weight:700;direction:ltr}
+.rsiv small{font-size:10.5px;color:var(--muted);white-space:nowrap}
+.rsiv.lo b{color:var(--watch)}
+.rsibar{flex:1;position:relative;height:8px;border-radius:4px;background:var(--sunk);border:1px solid var(--line);min-width:60px}
+.rsibar .zone{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--watch) 22%,transparent)}
+.rsibar .lo,.rsibar .now{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;transform:translate(50%,-50%)}
+.rsibar .lo{background:var(--watch)}
+.rsibar .now{background:var(--surface);border:2px solid var(--ink)}
+.rsibar.big{height:10px;margin:12px 0 6px}
 .r3{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px 10px;font-size:13px;background:var(--sunk);border-radius:var(--radius-sm);padding:8px 10px}
 .r3 div{min-width:0}
 .r3 span{display:block;color:var(--muted);font-size:11.5px;line-height:1.3}
@@ -224,7 +234,7 @@ canvas{width:100%;height:280px;display:block;touch-action:pan-y}
   <header class="top">
     <div class="brand">
       <h1>فاحص <b>YGH</b></h1>
-      <p>أسهم السوق الأمريكي بمنهج YGH</p>
+      <p>أسهم صغيرة في منطقة تشبع بيعي</p>
     </div>
     <div class="top-actions">
     <button class="icon-btn" id="jBtn" aria-label="سجل الإشارات" title="سجل الإشارات (الاختبار الأمامي)">
@@ -244,16 +254,7 @@ canvas{width:100%;height:280px;display:block;touch-action:pan-y}
     <div><span>المسح القادم</span><strong id="nextScan" style="grid-column:1/-1">—</strong></div>
   </section>
 
-  <nav class="tabs" role="tablist">
-    <button role="tab" data-tf="4h" aria-selected="true">4 ساعات<small>الأدق</small></button>
-    <button role="tab" data-tf="1d" aria-selected="false">يومي</button>
-  </nav>
-
-  <section class="counters">
-    <button class="counter" data-k="ready" aria-pressed="false"><b id="c-ready">0</b><span>جاهز</span></button>
-    <button class="counter" data-k="near" aria-pressed="false"><b id="c-near">0</b><span>قريب من الجاهزية</span></button>
-    <button class="counter" data-k="watch" aria-pressed="false"><b id="c-watch">0</b><span>مراقبة مبكرة</span></button>
-  </section>
+  <p class="pricenote" id="screenrule" style="margin:0 4px 12px;font-size:13px"></p>
 
   <div class="tools">
     <label class="search">
@@ -261,18 +262,18 @@ canvas{width:100%;height:280px;display:block;touch-action:pan-y}
       <input id="q" type="search" placeholder="ابحث برمز السهم أو اسمه" autocomplete="off" autocapitalize="characters">
     </label>
     <select id="sort" aria-label="الترتيب">
-      <option value="score">الدرجة</option>
+      <option value="rsi">RSI الأدنى</option>
+      <option value="rsinow">RSI الآن</option>
       <option value="dist">الأقرب للدعم</option>
       <option value="borrow">رسوم الاقتراض</option>
       <option value="float">الفلوت الأقل</option>
       <option value="chg">التغير اليومي</option>
-      <option value="rr">العائد/المخاطرة</option>
       <option value="gap">الفجوة</option>
     </select>
   </div>
   <div class="chips">
     <button class="chip" id="favOnly" aria-pressed="false">★ المفضلة</button>
-    <button class="chip" id="showAll" aria-pressed="false">عرض غير المؤهل</button>
+    <button class="chip" id="showAll" aria-pressed="false">كل الأسهم المفحوصة</button>
   </div>
 
   <div class="resultline"><b id="count">—</b><span id="tfnote"></span></div>
@@ -280,7 +281,7 @@ canvas{width:100%;height:280px;display:block;touch-action:pan-y}
   <ul class="list" id="list"></ul>
   <div id="emptyBox"></div>
   <button class="more" id="more" hidden>عرض المزيد</button>
-  <p class="foot">أداة تعليمية لتطبيق منهج YGH، وليست توصية شراء أو بيع. حدّد وقفك قبل أي دخول.</p>
+  <p class="foot">أداة فرز، وليست توصية شراء أو بيع. القرار لك، وحدّد وقفك قبل أي دخول.</p>
 </main>
 
 <section class="sheet" id="sheet" aria-modal="true" role="dialog" aria-label="تفاصيل السهم">
@@ -304,11 +305,9 @@ const COUNTRIES = {
   "Cyprus":["🇨🇾","قبرص"], "Monaco":["🇲🇨","موناكو"], "United Arab Emirates":["🇦🇪","الإمارات"],
   "South Korea":["🇰🇷","كوريا الجنوبية"], "Luxembourg":["🇱🇺","لوكسمبورغ"]
 };
-const STATUS_COLOR = {ready:"--ready", near:"--near", watch:"--watch", none:"--none"};
-const TECH_KEYS = ["support","near_support","mas","rsi_daily","macd","candle","volume","room"];
 
 const $ = s => document.querySelector(s);
-const state = {data:null, tf:"4h", status:null, q:"", sort:"score", favOnly:false, showAll:false, shown:PAGE,
+const state = {data:null, tf:"1d", q:"", sort:"rsi", favOnly:false, showAll:false, shown:PAGE,
   favs:new Set(loadFavs())};
 
 function loadFavs(){ try{ return JSON.parse(localStorage.getItem("ygh-favs")||"[]") }catch{ return [] } }
@@ -385,35 +384,36 @@ const lowFloat = r => r.float!=null && r.float < ((state.data&&state.data.meta.v
 function rrClass(x){ return x==null ? "" : x>=MIN_RR ? "good" : x>=1.5 ? "mid" : "bad"; }
 const rrText = x => x==null ? "—" : "1:" + (x>=10 ? Math.round(x) : x.toFixed(2).replace(/0$/,""));
 
-/* ---------- شريط الدرجة ---------- */
-function stripHTML(r, big){
-  const c = `var(${STATUS_COLOR[r.status]})`;
-  let out = `<div class="strip${big?" big":""}" style="--c:${c}" aria-hidden="true">`;
-  r.conditions.forEach((k,i)=>{
-    if(i===TECH_KEYS.length) out += `<i class="gap"></i>`;
-    const cls = k.result===1 ? "f" : k.result===0.5 ? "h" : "";
-    out += `<i class="${cls}" style="flex:${k.weight}"></i>`;
-  });
-  return out + `</div>`;
+/* ---------- مقياس RSI ---------- */
+const RSI_SCALE = 100;   // المقياس الكامل 0–100، يبدأ من اليمين مثل اتجاه القراءة
+const screenRange = () => { const m = state.data && state.data.meta.screen; return [(m&&m.rsi_min)??23, (m&&m.rsi_max)??27]; };
+const rsiPos = x => Math.max(0, Math.min(100, x / RSI_SCALE * 100));
+function rsiBar(r, big){
+  if(r.rsi_low==null) return `<div class="rsibar${big?" big":""}" aria-hidden="true"></div>`;
+  const [a,b] = screenRange();
+  return `<div class="rsibar${big?" big":""}" aria-hidden="true">
+    <span class="zone" style="right:${rsiPos(a)}%;width:${rsiPos(b)-rsiPos(a)}%"></span>
+    <span class="now" style="right:${rsiPos(r.rsi_now)}%"></span>
+    <span class="lo" style="right:${rsiPos(r.rsi_low)}%"></span></div>`;
 }
+const macdText = r => { const c = (r.conditions||[]).find(x=>x.key==="macd"); return c ? c.detail : "—"; };
 
 /* ---------- القائمة ---------- */
 function rows(){
   if(!state.data) return [];
   let rs = state.data.timeframes[state.tf] || [];
-  if(!state.showAll) rs = rs.filter(r=>r.status!=="none");
-  if(state.status) rs = rs.filter(r=>r.status===state.status);
+  if(!state.showAll) rs = rs.filter(r=>r.screen);
   if(state.favOnly) rs = rs.filter(r=>state.favs.has(r.symbol));
   const q = state.q.trim().toUpperCase();
   if(q) rs = rs.filter(r=>r.symbol.includes(q) || (r.name||"").toUpperCase().includes(q));
   const by = {
-    score:(a,b)=>b.score-a.score,
+    rsi:(a,b)=>(a.rsi_low??999)-(b.rsi_low??999),
+    rsinow:(a,b)=>(a.rsi_now??999)-(b.rsi_now??999),
     borrow:(a,b)=>(b.borrow_fee||0)-(a.borrow_fee||0),
     float:(a,b)=>(a.float??Infinity)-(b.float??Infinity),
     chg:(a,b)=>b.change_pct-a.change_pct,
     dist:(a,b)=>Math.abs(distToZone(a)??9)-Math.abs(distToZone(b)??9),
     gap:(a,b)=>(b.ext?b.ext.gap_pct:-1e9)-(a.ext?a.ext.gap_pct:-1e9),
-    rr:(a,b)=>((b.risk&&b.risk.rr)??-1)-((a.risk&&a.risk.rr)??-1),
   }[state.sort];
   return [...rs].sort(by);
 }
@@ -434,42 +434,34 @@ function rowHTML(r){
       <div class="px"><b>$${fmtP(r.price)}</b><span class="chg ${chgCls}">${fmtPct(r.change_pct)}</span>
         ${r.ext?`<span class="ext ${extWarn(r)?"warn":(r.ext.gap_pct>=0?"up":"down")}">${extWarn(r)?"⚠ ":""}${EXT_NAME[r.ext.session]} <span class="num">${fmtPct(r.ext.gap_pct)}</span>${r.ext.rvol!=null?` <span class="num">${fmtX(r.ext.rvol)}</span>`:""}</span>`:""}</div>
     </div>
-    <div class="r2">
-      <span class="pill ${r.status}">${r.status_label}</span>
-      ${stripHTML(r)}
-      <span class="score"><b>${Math.round(r.score)}</b>/100</span>
-      ${r.risk&&r.risk.rr!=null?`<span class="rr ${rrClass(r.risk.rr)}" title="العائد إلى المخاطرة">${rrText(r.risk.rr)}</span>`:""}
+    <div class="r2" title="الدائرة الممتلئة أدنى RSI يومي خلال آخر 10 جلسات، والفارغة القراءة الحالية">
+      <span class="rsiv ${r.screen?"lo":""}"><b>${r.rsi_low??"—"}</b><small>أدنى RSI</small></span>
+      ${rsiBar(r)}
+      <span class="rsiv"><b>${r.rsi_now??"—"}</b><small>الآن</small></span>
     </div>
     <div class="r3">
-      <div><span>المرحلة</span><b>${r.stage}</b></div>
       <div><span>الدعم</span><b class="num">${fmtP(r.support)}</b></div>
+      <div><span>عن الدعم</span><b class="num">${(()=>{const d=distToZone(r);return d==null?"—":d===0?"داخله":fmtPct(d*100)})()}</b></div>
+      <div><span>MACD</span><b>${r.macd===1?"تقاطع إيجابي":r.macd===0.5?"يتحسن":"لا"}</b></div>
       <div><span>الفلوت</span><b class="num">${human(r.float)}</b></div>
       <div><span>الاقتراض</span><b class="num">${r.borrow_fee!=null?r.borrow_fee.toFixed(1)+"%":"—"}</b></div>
-      <div><span>الشورت</span><b class="num">${human(r.short_available)}</b></div>
       <div><span>التقسيم</span><b class="num">${rs?rs.text:"—"}</b></div>
     </div>
-    ${r.gated?`<div class="gatenote">${r.gate_reason==="risk"
-      ? "درجته تؤهله لحالة أعلى، لكن الوقف قريب جداً من السعر فلا يمكن تنفيذ الصفقة واقعياً."
-      : r.gate_reason==="rr"
-      ? `درجته تؤهله لحالة أعلى، لكن العائد إلى المخاطرة أقل من 1:${MIN_RR} فبقي في المراقبة.`
-      : "درجته تؤهله لحالة أعلى، لكنه بعيد عن الدعم فبقي في المراقبة."}</div>`:""}
   </button></li>`;
 }
 
 function render(){
   const d = state.data;
-  if(d){
-    const c = d.meta.counts[state.tf] || {};
-    for(const k of ["ready","near","watch"]) $("#c-"+k).textContent = c[k]??0;
-  }
-  document.querySelectorAll(".counter").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.k===state.status)));
+  $("#screenrule").innerHTML = d ? (d.meta.screen
+    ? `أدنى RSI يومي خلال آخر 10 جلسات بين <b class="num">${screenRange()[0]}</b> و<b class="num">${screenRange()[1]}</b>. أفضل شرط أثراً في آخر اختبار، لكنه فرز لا إشارة دخول. الدعم وبقية المؤشرات معلومات لقرارك.`
+    : "القائمة الجديدة تظهر بعد المسح القادم.") : "";
   const rs = rows();
   const list = $("#list"), empty = $("#emptyBox");
-  $("#count").textContent = d ? `${rs.length} ${rs.length===1?"سهم":"أسهم"} تطابق الفلاتر` : "—";
+  $("#count").textContent = d ? `${rs.length} ${rs.length===1?"سهم":"أسهم"}` : "—";
   $("#pricenote").textContent = d && d.meta.last_close_date ? `الأسعار المعروضة هي إغلاق الجلسة الرسمية يوم ${closeDate(d.meta.last_close_date)}.` +
     (d.meta.extended_session ? (d.meta.extended_count
       ? ` الأسهم التي جرى عليها تداول ${EXT_IN[d.meta.extended_session]} يظهر سعرها أسفلها.`
-      : ` لم يجرِ تداول فعلي ${EXT_IN[d.meta.extended_session]} على الأسهم المؤهلة حتى وقت المسح.`) : "") : "";
+      : ` لم يجرِ تداول فعلي ${EXT_IN[d.meta.extended_session]} على هذه الأسهم حتى وقت المسح.`) : "") : "";
   $("#tfnote").textContent = d ? `من ${d.meta.scanned} سهماً تم فحصها` +
     (d.meta.extended_session && d.meta.extended_count ? ` • حركة ${EXT_NAME[d.meta.extended_session]} لـ ${d.meta.extended_count}` : "") : "";
   list.innerHTML = rs.slice(0, state.shown).map(rowHTML).join("");
@@ -478,8 +470,8 @@ function render(){
   if(!d) empty.innerHTML = "";
   else if(!rs.length){
     const why = state.favOnly ? "لم تضف أسهماً للمفضلة في هذه القائمة بعد. افتح أي سهم واضغط ☆ لإضافته."
-      : state.q ? "لا يوجد سهم بهذا الرمز أو الاسم ضمن القائمة الحالية. جرّب تفعيل «عرض غير المؤهل»."
-      : "لا توجد أسهم بهذه الحالة في آخر مسح.";
+      : state.q ? "لا يوجد سهم بهذا الرمز أو الاسم ضمن القائمة. جرّب تفعيل «كل الأسهم المفحوصة»."
+      : "لا يوجد اليوم سهم في منطقة الفرز. فعّل «كل الأسهم المفحوصة» لرؤية البقية.";
     empty.innerHTML = `<div class="empty"><b>لا توجد نتائج</b>${why}</div>`;
   } else empty.innerHTML = "";
 }
@@ -492,7 +484,7 @@ function drawChart(cv, r, hoverIdx){
   const dpr = window.devicePixelRatio||1, W = cv.clientWidth, H = cv.clientHeight;
   cv.width = W*dpr; cv.height = H*dpr;
   const g = cv.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H);
-  if(!bars.length){ g.fillStyle=col("--muted"); g.font="14px sans-serif"; g.textAlign="center"; g.fillText("No chart data",W/2,H/2); return; }
+  if(!bars.length){ g.fillStyle=col("--muted"); g.font="14px sans-serif"; g.textAlign="center"; g.fillText("الشارت يظهر بعد المسح القادم",W/2,H/2); return; }
   const axisW = 50, padT = 10, padB = 18, plotW = W-axisW;
   let lo = Math.min(...bars.map(b=>b.l)), hi = Math.max(...bars.map(b=>b.h));
   const z = r.support_zone, res = r.resistance, maj = r.major_support;
@@ -580,15 +572,9 @@ function openSheet(sym, push=true){
   const r = (state.data.timeframes[state.tf]||[]).find(x=>x.symbol===sym);
   if(!r) return;
   const f = flagOf(r.country), rs = r.reverse_split, dist = distToZone(r);
-  const tfName = state.tf==="4h" ? "4 ساعات" : "اليومي";
+  const tfName = "اليومي";
   const fav = state.favs.has(sym);
-  const condItem = c => {
-    const m = c.result===1 ? ["f","✓"] : c.result===0.5 ? ["h","½"] : ["z","✕"];
-    return `<li><span class="mark ${m[0]}">${m[1]}</span><div><b>${c.title}</b><p>${c.detail}</p></div>
-      <span class="pts"><b>${+c.points.toFixed(1)}</b> / ${c.weight}</span></li>`;
-  };
-  const tech = r.conditions.filter(c=>TECH_KEYS.includes(c.key)), data = r.conditions.filter(c=>!TECH_KEYS.includes(c.key));
-  const techPts = tech.reduce((a,c)=>a+c.points,0), dataPts = data.reduce((a,c)=>a+c.points,0);
+  const cond = k => (r.conditions||[]).find(c=>c.key===k);
   $("#sheetBody").innerHTML = `
     <div class="shead">
       <button class="icon-btn" id="close" aria-label="رجوع"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>
@@ -598,45 +584,16 @@ function openSheet(sym, push=true){
 
     <div class="panel">
       <div class="hero">
-        <div><span class="pill ${r.status}">${r.status_label}</span>
-          <div class="big" style="margin-top:10px">${Math.round(r.score)}<small> / 100</small></div></div>
+        <div><span style="font-size:12.5px;color:var(--muted)">أدنى RSI يومي خلال 10 جلسات</span>
+          <div class="big" style="margin-top:6px;${r.screen?"color:var(--watch)":""}">${r.rsi_low??"—"}<small> الآن ${r.rsi_now??"—"}</small></div></div>
         <div class="px"><b>$${fmtP(r.price)}</b><span class="chg ${r.change_pct>=0?"up":"down"}">${fmtPct(r.change_pct)}</span>
           <small style="display:block;color:var(--muted);font-size:11.5px">إغلاق الجلسة الرسمية</small></div>
       </div>
-      ${stripHTML(r,true)}
-      <div class="legend"><span>الشروط الفنية ${+techPts.toFixed(1)} / ${tech.reduce((a,c)=>a+c.weight,0)}</span><span>شروط البيانات ${+dataPts.toFixed(1)} / ${data.reduce((a,c)=>a+c.weight,0)}</span></div>
+      ${rsiBar(r,true)}
+      <p class="sub" style="margin:0">${r.screen ? "ضمن" : "خارج"} منطقة الفرز (بين ${screenRange()[0]} و${screenRange()[1]}، المظللة). الدائرة الممتلئة أدنى قراءة، والفارغة القراءة الحالية.</p>
     </div>
 
     ${lowFloat(r)?`<div class="panel warn"><h2>فلوت منخفض جداً</h2><p class="sub" style="margin:0">عدد الأسهم المتاحة للتداول أقل من مليون (<span class="num">${human(r.float)}</span>). مثل هذه الأسهم يسهل تحريكها بمبالغ صغيرة، فتتحرك بعنف في الاتجاهين، وقد تفتح بفجوة تتجاوز وقفك فتكون الخسارة أكبر من المخطط. قلّل حجم الصفقة إن دخلت.</p></div>`:""}
-
-    ${r.gated?(r.gate_reason==="risk"
-      ? `<div class="panel warn"><h2>الوقف قريب جداً</h2><p class="sub" style="margin:0">المسافة بين السعر والوقف أقل من 2%. في الأسهم الصغيرة، فرق سعر البيع والشراء وحده قد يضرب وقفاً كهذا، فلا يُعتبر السهم جاهزاً مهما كانت درجته.</p></div>`
-      : r.gate_reason==="rr"
-      ? `<div class="panel warn"><h2>العائد لا يستحق المخاطرة</h2><p class="sub" style="margin:0">درجة السهم تؤهله لحالة أعلى، لكن المسافة إلى الهدف أقل من ضعف المسافة إلى الوقف بسعر الدخول الحالي، فبقي في المراقبة المبكرة. قد يصبح مناسباً إذا عاد السعر قرب الدعم.</p></div>`
-      : `<div class="panel warn"><h2>بعيد عن الدعم</h2><p class="sub" style="margin:0">درجة السهم تؤهله لحالة أعلى، لكن المنهج يشترط أن يكون في مرحلة اختبار الدعم أو إعادة اختبار ناجحة، فبقي في المراقبة المبكرة.</p></div>`):""}
-
-    ${r.risk ? (() => {
-      const k = r.risk, pc = (a,b) => fmtPct((a/b-1)*100);
-      const t2 = k.t2 ? `<div class="kv"><span>الهدف الثاني</span><b class="num">${fmtP(k.t2)}</b><small class="n">${pc(k.t2,k.entry)}</small></div>` : "";
-      const extRR = r.ext && k.t1 && r.ext.price>k.stop && r.ext.price<k.t1 ? (k.t1-r.ext.price)/(r.ext.price-k.stop) : null;
-      const verdict = k.rr==null ? (k.t1 ? "السعر الحالي تجاوز الهدف أو نزل تحت الوقف، فلا توجد صفقة صالحة الآن." : "لا توجد مقاومة واضحة فوق السعر في الفترة، فالهدف غير محدد.")
-        : k.rr>=MIN_RR ? `العائد المتوقع يساوي ${k.rr.toFixed(1)} أضعاف المخاطرة، وهذا ضمن الحد الذي يشترطه المنهج (1:${MIN_RR}).`
-        : `العائد المتوقع أقل من ضعف المخاطرة بالسعر الحالي.${k.rr_ideal!=null&&k.rr_ideal>=MIN_RR?` لكن لو تم الدخول قرب أعلى منطقة الدعم (${fmtP(k.ideal_entry)}) تصبح النسبة ${rrText(k.rr_ideal)}.`:""}`;
-      return `<div class="panel">
-        <h2>خطة الصفقة</h2>
-        <p class="sub">الوقف تحت قاع منطقة الدعم، والهدف عند أقرب مقاومة. أرقام استرشادية تساعدك على التخطيط، وليست توصية.</p>
-        <div class="grid2">
-          <div class="kv"><span>الدخول (السعر الحالي)</span><b class="num">${fmtP(k.entry)}</b></div>
-          <div class="kv"><span>العائد إلى المخاطرة</span><b class="num rr ${rrClass(k.rr)}" style="background:none;padding:0;font-size:15px">${rrText(k.rr)}</b></div>
-          <div class="kv"><span>الوقف</span><b class="num down">${fmtP(k.stop)}</b><small class="n">${k.risk_pct!=null?"-"+k.risk_pct.toFixed(2)+"%":""}</small></div>
-          <div class="kv"><span>الهدف الأول</span><b class="num up">${fmtP(k.t1)}</b><small class="n">${k.reward_pct!=null?"+"+k.reward_pct.toFixed(2)+"%":""}</small></div>
-          <div class="kv"><span>الدخول المثالي</span><b class="num">${fmtP(k.ideal_entry)}</b><small>العائد/المخاطرة ${rrText(k.rr_ideal)}</small></div>
-          ${t2}
-        </div>
-        ${extRR!=null?`<p class="sub" style="margin:10px 0 0">بسعر ${EXT_NAME[r.ext.session]} (<span class="num">${fmtP(r.ext.price)}</span>) تصبح النسبة <b class="num">${rrText(extRR)}</b>.</p>`:""}
-        <p class="sub" style="margin:8px 0 0;color:var(--ink)">${verdict}</p>
-      </div>`;
-    })() : ""}
 
     ${r.ext ? (() => {
       const e = r.ext, w = extWarn(r), name = EXT_IN[e.session];
@@ -647,10 +604,10 @@ function openSheet(sym, push=true){
         : e.gap_pct <= -5 ? `فجوة هبوط واضحة، لكن السعر ما زال فوق منطقة الدعم. راقب سلوكه عند الدعم بعد الافتتاح.`
         : e.gap_pct >= 5 && e.rvol!=null && e.rvol < 1 ? `فجوة صعود لكن بفوليوم أضعف من المعتاد، وهذا يجعلها أقل موثوقية وقد تتلاشى بعد الافتتاح.`
         : e.gap_pct >= 5 ? `فجوة صعود واضحة والسعر ما زال تحت المقاومة. انتبه أن الدخول بعيداً عن الدعم يرفع المخاطرة.`
-        : `الحركة ${name} محدودة، والتقييم الفني ما زال صالحاً كما هو.`;
+        : `الحركة ${name} محدودة، والمستويات ما زالت كما هي.`;
       return `<div class="panel ${w?"warn":""}">
         <h2>${EXT_TITLE[e.session]}</h2>
-        <p class="sub">آخر سعر عند ${e.time_ny} بتوقيت نيويورك، مقارنة بإغلاق يوم ${closeDate(e.ref_date)} <span class="num">${fmtP(e.ref_close)}</span>. لا تدخل في حساب الدرجة.</p>
+        <p class="sub">آخر سعر عند ${e.time_ny} بتوقيت نيويورك، مقارنة بإغلاق يوم ${closeDate(e.ref_date)} <span class="num">${fmtP(e.ref_close)}</span>. </p>
         <div class="grid2">
           <div class="kv"><span>السعر</span><b class="num">$${fmtP(e.price)}</b></div>
           <div class="kv"><span>الفجوة</span><b class="num ${e.gap_pct>=0?"up":"down"}">${fmtPct(e.gap_pct)}</b></div>
@@ -670,8 +627,8 @@ function openSheet(sym, push=true){
       <div class="keys">
         <span><i style="background:var(--zone);height:10px"></i>منطقة الدعم</span>
         <span><i style="background:var(--ready)"></i>الدعم</span>
-        <span><i style="background:var(--down);opacity:.6"></i>المقاومة (الهدف)</span>
-        ${r.risk?`<span><i style="background:var(--down);height:4px"></i>الوقف</span>`:""}
+        <span><i style="background:var(--down);opacity:.6"></i>أقرب مقاومة</span>
+        ${r.risk?`<span><i style="background:var(--down);height:4px"></i>الوقف المقترح</span>`:""}
         <span><i style="background:var(--ma20)"></i>MA20</span>
         <span><i style="background:var(--ma50)"></i>MA50</span>
         ${r.ext?`<span><i style="background:var(--watch)"></i>سعر ${EXT_NAME[r.ext.session]}</span>`:""}
@@ -680,26 +637,24 @@ function openSheet(sym, push=true){
 
     <div class="panel">
       <h2>المستويات</h2>
-      <p class="sub">المرحلة: ${r.stage}</p>
+      <p class="sub">الوقف المقترح تحت قاع منطقة الدعم. في كل الاختبارات كان الخروج عند <b>إغلاق</b> شمعة تحته أفضل من الخروج بمجرد لمسه.</p>
       <div class="grid2">
-        <div class="kv"><span>منطقة الدعم</span><b class="num">${r.support_zone?fmtP(r.support_zone[0])+" – "+fmtP(r.support_zone[1]):"—"}</b></div>
+        <div class="kv"><span>منطقة الدعم</span><b class="num">${r.support_zone?fmtP(r.support_zone[0])+" – "+fmtP(r.support_zone[1]):"—"}</b><small>${r.touches?`<span class="num">${r.touches}</span> ارتدادات`:""}</small></div>
         <div class="kv"><span>المسافة عن الدعم</span><b class="num">${dist==null?"—":(dist===0?"داخل المنطقة":fmtPct(dist*100))}</b></div>
+        <div class="kv"><span>الوقف المقترح</span><b class="num down">${r.risk?fmtP(r.risk.stop):"—"}</b><small>${r.risk&&r.risk.risk_pct!=null?`<span class="num">-${r.risk.risk_pct.toFixed(1)}%</span> من السعر`:""}</small></div>
+        <div class="kv"><span>أقرب مقاومة</span><b class="num">${fmtP(r.resistance)}</b><small>${r.resistance?`<span class="num">${fmtPct((r.resistance/r.price-1)*100)}</span> من السعر`:""}</small></div>
         <div class="kv"><span>الدعم الرئيسي</span><b class="num">${r.major_support?fmtP(r.major_support.level):"—"}</b></div>
-        <div class="kv"><span>أقرب مقاومة</span><b class="num">${fmtP(r.resistance)}</b></div>
       </div>
     </div>
 
     <div class="panel">
-      <h2>الشروط الفنية على فريم ${tfName}</h2>
-      <p class="sub">الرقم على اليسار وزن الشرط من 100. RSI يُحسب من اليومي دائماً.</p>
-      <ul class="conds">${tech.map(condItem).join("")}</ul>
-    </div>
-
-    <div class="panel">
-      <h2>شروط البيانات</h2>
-      <p class="sub">رسوم الاقتراض والشورت من IBKR، والفلوت والتقسيم من Yahoo.</p>
-      <ul class="conds">${data.map(condItem).join("")}</ul>
-      <div class="grid2" style="margin-top:10px">
+      <h2>مؤشرات ومعلومات</h2>
+      <p class="sub">الاقتراض والشورت من IBKR، والفلوت والتقسيم من Yahoo.</p>
+      <div class="grid2">
+        <div class="kv"><span>MACD اليومي</span><b style="font-size:14px">${macdText(r)}</b></div>
+        <div class="kv"><span>الشمعة عند الدعم</span><b style="font-size:14px">${cond("candle")?cond("candle").detail:"—"}</b></div>
+        <div class="kv"><span>الفلوت</span><b class="num">${human(r.float)}</b></div>
+        <div class="kv"><span>رسوم الاقتراض</span><b class="num">${r.borrow_fee!=null?r.borrow_fee.toFixed(1)+"% سنوياً":"—"}</b></div>
         <div class="kv"><span>متاح للشورت</span><b class="num">${human(r.short_available)}</b></div>
         <div class="kv"><span>آخر تقسيم عكسي</span><b>${rs?`<span class="num">${rs.text}</span> منذ ${rs.days} يوماً`:"لا يوجد"}</b></div>
       </div>
@@ -709,7 +664,7 @@ function openSheet(sym, push=true){
       <a class="btn primary" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(r.symbol)}" target="_blank" rel="noopener">افتح في TradingView</a>
       <a class="btn" href="https://finance.yahoo.com/quote/${encodeURIComponent(r.symbol)}" target="_blank" rel="noopener">Yahoo Finance</a>
     </div>
-    <p class="disclaimer">أداة تعليمية لتطبيق منهج YGH، وليست توصية شراء أو بيع. حدّد وقفك قبل أي دخول.</p>`;
+    <p class="disclaimer">أداة فرز، وليست توصية شراء أو بيع. القرار لك، وحدّد وقفك قبل أي دخول.</p>`;
 
   const sheet = $("#sheet");
   sheet.classList.add("open"); sheet.scrollTop = 0;
@@ -894,58 +849,49 @@ async function openBacktest(push=true){
 const STATE_AR = {pending:"بانتظار الدخول", open:"مفتوحة", target:"الهدف", stop:"الوقف", gap:"فجوة", time:"انتهت المدة", no_entry:"لم تُفتح", closed:"مغلقة"};
 async function openJournal(push=true){
   const body = $("#sheetBody");
-  const head = `<div class="shead"><button class="icon-btn" id="close" aria-label="رجوع"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button><div class="t"><b style="direction:rtl">سجل الإشارات</b><div>الاختبار الأمامي على بيانات جديدة</div></div></div>`;
+  const head = `<div class="shead"><button class="icon-btn" id="close" aria-label="رجوع"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button><div class="t"><b style="direction:rtl">سجل الإشارات</b><div>اختبار صيغة واحدة على بيانات جديدة</div></div></div>`;
   body.innerHTML = head + `<div class="panel"><p class="sub" style="margin:0">جارٍ التحميل…</p></div>`;
   const sheet = $("#sheet"); sheet.classList.add("open"); sheet.scrollTop = 0; document.body.style.overflow = "hidden";
   if(push) history.pushState({j:1}, "", "#journal");
   $("#close").onclick = () => history.back();
   let j;
   try{ const res = await fetch("journal.json?t="+Date.now(), {cache:"no-store"}); if(!res.ok) throw 0; j = await res.json(); }
-  catch{ body.querySelector(".panel").innerHTML = `<h2>السجل لم يبدأ بعد</h2><p class="sub" style="margin:0">يبدأ تلقائياً مع أول مسح بعد التحديث، ويسجل كل سهم جاهز أو قريب من الجاهزية.</p>`; return; }
+  catch{ body.querySelector(".panel").innerHTML = `<h2>السجل لم يبدأ بعد</h2><p class="sub" style="margin:0">يبدأ تلقائياً مع أول مسح بعد التحديث.</p>`; return; }
 
-  const S = j.summary || {}, A = S.all || {}, D = S.daily75 || {};
+  const S = j.summary || {}, A = S.all || {}, T = S.touch_ref || {};
   const R = x => x==null ? "—" : (x>0?"+":"") + x + "R";
-  const P = x => x==null ? "—" : (x>0?"+":"") + x + "%";
   const cls = x => x==null ? "" : x>0 ? "up" : x<0 ? "down" : "";
-  const NEED = 30;
+  const NEED = S.decide_at || 30;
+  const frozen = S.stop_mode === "close";
   const verdict = (A.closed||0) < NEED
-    ? `العينة ما زالت صغيرة: <b class="num">${A.closed||0}</b> صفقة مغلقة من <b class="num">${NEED}</b> على الأقل. لا تحكم على المنهج قبلها، فبضع صفقات قد تكون حظاً أو سوء حظ.`
-    : A.avg_r > 0.1 && (A.avg_r_trim??A.avg_r) > 0 ? "المنهج رابح على بيانات جديدة، وحتى بعد استبعاد أفضل 5% من الصفقات. هذه أقوى نتيجة ممكنة، لكن استمر بحجم صفقات صغير."
-    : A.avg_r > 0 ? "المنهج رابح قليلاً على البيانات الجديدة، لكن الربح يعتمد على صفقات قليلة. استمر بالمراقبة قبل زيادة أي حجم."
-    : "المنهج خاسر على البيانات الجديدة، كما توقع الاختبار التاريخي. لا تعتمد عليه للدخول.";
+    ? `العينة ما زالت صغيرة: <b class="num">${A.closed||0}</b> صفقة مغلقة من <b class="num">${NEED}</b>. لا حكم قبلها، فبضع صفقات قد تكون حظاً أو سوء حظ.`
+    : A.avg_r > 0 && (A.avg_r_trim??A.avg_r) > 0 ? "الصيغة رابحة على بيانات جديدة، حتى بعد استبعاد أفضل 5% من الصفقات. هذه أقوى نتيجة ممكنة، لكن ابدأ بحجم صفقات صغير."
+    : A.avg_r > 0 ? "الصيغة رابحة قليلاً، لكن الربح يعتمد على صفقات قليلة كبيرة. لا يكفي هذا للاعتماد عليها."
+    : "الصيغة خاسرة على البيانات الجديدة. لا تعتمد على إشاراتها للدخول.";
   const tfLine = k => { const x = S[k]||{}; return `${k==="4h"?"4 ساعات":"يومي"}: <span class="num">${x.closed||0}</span> مغلقة، متوسط <span class="num ${cls(x.avg_r)}">${R(x.avg_r)}</span>`; };
   const sym = e => `<a class="num" style="color:var(--accent);font-weight:700" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(e.s)}" target="_blank" rel="noopener">${e.s}</a>`;
   const live = j.signals.filter(e=>e.state==="open"||e.state==="pending").sort((a,b)=>b.bar_t.localeCompare(a.bar_t));
   const done = j.signals.filter(e=>!["open","pending"].includes(e.state)).sort((a,b)=>(b.exit_t||b.bar_t).localeCompare(a.exit_t||a.bar_t));
-  const d75open = j.daily75.filter(e=>e.state!=="closed"), d75done = j.daily75.filter(e=>e.state==="closed").slice(-20).reverse();
 
   body.innerHTML = head + `
     <div class="panel">
       <h2>الخلاصة</h2>
-      <p class="sub">منذ ${j.started_utc||"—"} UTC • آخر تحديث ${j.updated_utc||"—"} UTC</p>
+      <p class="sub">${frozen ? `صيغة واحدة مجمّدة منذ ${j.frozen_utc||"—"} UTC: إشارات المنهج على الفريمين، والخروج عند <b>إغلاق</b> شمعة تحت الوقف أو عند الهدف أو بعد 20 يوم تداول. لا تعديل عليها حتى ${NEED} صفقة مغلقة.` : "تتحول إلى الوقف على الإغلاق مع المسح القادم."}</p>
       <div class="bt-cards">
-        <div class="kv"><span>صفقات مغلقة</span><b class="num">${A.closed||0}</b><small>مفتوحة <span class="num">${A.open||0}</span>، بانتظار الدخول <span class="num">${A.pending||0}</span></small></div>
+        <div class="kv"><span>صفقات مغلقة</span><b><span class="num">${A.closed||0}</span> <small style="font-size:14px;color:var(--muted)">من ${NEED}</small></b><small>مفتوحة <span class="num">${A.open||0}</span>، بانتظار الدخول <span class="num">${A.pending||0}</span></small></div>
         <div class="kv"><span>متوسط الصفقة</span><b class="num ${cls(A.avg_r)}">${R(A.avg_r)}</b><small>بلا أفضل 5%: <span class="num">${R(A.avg_r_trim)}</span></small></div>
         <div class="kv"><span>الرابحة</span><b class="num">${A.win_rate==null?"—":A.win_rate+"%"}</b><small>الهدف <span class="num">${A.targets||0}</span>، والوقف <span class="num">${A.stops||0}</span></small></div>
         <div class="kv"><span>المجموع</span><b class="num ${cls(A.total_r)}">${R(A.total_r)}</b><small>${tfLine("4h")}<br>${tfLine("1d")}</small></div>
       </div>
       <p class="sub" style="margin:12px 0 0;color:var(--ink)">${verdict}</p>
+      ${frozen && T.closed ? `<p class="sub" style="margin:8px 0 0">للمقارنة فقط: لو كان الخروج بمجرد لمس الوقف، لكان المتوسط <span class="num ${cls(T.avg_r)}">${R(T.avg_r)}</span> على <span class="num">${T.closed}</span> صفقة.</p>` : ""}
     </div>
-
-    ${S.alt_close ? `<div class="panel">
-      <h2>تجربة موازية: الوقف على الإغلاق</h2>
-      <p class="sub">نفس الإشارات، لكن الصفقة لا تُغلق إلا إذا <b>أغلقت</b> شمعة تحت الوقف، لا بمجرد لمسه. للمقارنة فقط، ولا تغير نتيجة المنهج.</p>
-      <div class="bt-cards">
-        <div class="kv"><span>متوسط الصفقة</span><b class="num ${cls(S.alt_close.avg_r)}">${R(S.alt_close.avg_r)}</b><small>مقابل <span class="num">${R(A.avg_r)}</span> بالوقف الحالي</small></div>
-        <div class="kv"><span>المجموع</span><b class="num ${cls(S.alt_close.total_r)}">${R(S.alt_close.total_r)}</b><small>مغلقة <span class="num">${S.alt_close.closed}</span>، مفتوحة <span class="num">${S.alt_close.open}</span></small></div>
-      </div>
-    </div>` : ""}
 
     <div class="panel">
       <h2>الصفقات المفتوحة</h2>
-      <p class="sub">الدخول بافتتاح الشمعة التالية للإشارة، والخروج عند الهدف أو الوقف أو بعد ${20} يوم تداول. R الحالية محسوبة من آخر إغلاق.</p>
+      <p class="sub">الدخول بافتتاح الشمعة التالية للإشارة. R الحالية محسوبة من آخر إغلاق، بعد خصم التكلفة.</p>
       ${live.length ? `<div class="tblwrap"><table class="tbl"><thead><tr><th>السهم</th><th>الإشارة</th><th>الخطة</th><th>الآن</th></tr></thead><tbody>
-      ${live.map(e=>`<tr><td>${sym(e)}<small class="cnt">${e.tf==="4h"?"4 ساعات":"يومي"}</small><small class="cnt">${e.status==="ready"?"جاهز":"قريب"}</small></td>
+      ${live.map(e=>`<tr><td>${sym(e)}<small class="cnt">${e.tf==="4h"?"4 ساعات":"يومي"}</small></td>
         <td class="num">${e.bar_t.slice(0,10)}<small class="cnt">${STATE_AR[e.state]}</small></td>
         <td class="num">${e.entry!=null?fmtP(e.entry):fmtP(e.ref)}<small class="cnt">وقف ${fmtP(e.stop)}</small><small class="cnt">هدف ${fmtP(e.t1)}</small></td>
         <td class="num ${cls(e.r_now)}"><b>${R(e.r_now)}</b><small class="cnt">${e.last_px!=null?fmtP(e.last_px):""}</small></td></tr>`).join("")}
@@ -958,20 +904,8 @@ async function openJournal(push=true){
       ${done.slice(0,40).map(e=>`<tr><td>${sym(e)}<small class="cnt">${e.tf==="4h"?"4 ساعات":"يومي"}</small></td>
         <td class="num">${e.bar_t.slice(0,10)}<small class="cnt">دخول ${e.entry!=null?fmtP(e.entry):"—"}</small></td>
         <td>${STATE_AR[e.state]}<small class="cnt num">${(e.exit_t||"").slice(0,10)}</small></td>
-        <td class="num ${cls(e.r)}"><b>${R(e.r)}</b>${e.alt_close&&e.alt_close.state&&e.alt_close.state!=="no_entry"?`<small class="cnt">على الإغلاق:</small><small class="cnt num">${e.alt_close.state==="open"?"مفتوحة "+R(e.alt_close.r_now):R(e.alt_close.r)}</small>`:""}</td></tr>`).join("")}
+        <td class="num ${cls(e.r)}"><b>${R(e.r)}</b></td></tr>`).join("")}
       </tbody></table></div>` : `<p class="sub" style="margin:0">لم تُغلق أي صفقة بعد.</p>`}
-    </div>
-
-    <div class="panel">
-      <h2>خيط اليومي 75+</h2>
-      <p class="sub">كل سهم درجته الفنية على اليومي 75% فأكثر، وعائده بعد 10 أيام تداول بلا هدف ولا وقف، بعد خصم التكلفة. في الاختبار التاريخي حققت هذه الفئة متوسط +3.6% مقابل ‎-0.9% لكل الأسهم، والسجل يختبر هل يتكرر ذلك.</p>
-      <div class="bt-cards">
-        <div class="kv"><span>مكتملة</span><b class="num">${D.closed||0}</b><small>جارية <span class="num">${D.open||0}</span></small></div>
-        <div class="kv"><span>متوسط العائد</span><b class="num ${cls(D.avg_ret)}">${P(D.avg_ret)}</b><small>الوسيط <span class="num">${P(D.median_ret)}</span>، الصاعدة <span class="num">${D.win_rate==null?"—":D.win_rate+"%"}</span></small></div>
-      </div>
-      ${d75done.length?`<div class="tblwrap" style="margin-top:10px"><table class="tbl"><thead><tr><th>السهم</th><th>الإشارة</th><th>العائد</th></tr></thead><tbody>
-      ${d75done.map(e=>`<tr><td>${sym(e)}</td><td class="num">${e.bar_t.slice(0,10)}</td><td class="num ${cls(e.ret)}"><b>${P(e.ret)}</b></td></tr>`).join("")}</tbody></table></div>`:""}
-      ${d75open.length?`<p class="sub" style="margin:10px 0 0">جارية الآن: ${d75open.map(e=>`${sym(e)} <small class="num ${cls(e.ret_now)}">${e.ret_now!=null?P(e.ret_now):"بانتظار الدخول"}</small>`).join(" • ")}</p>`:""}
     </div>
     <p class="disclaimer">السجل يتحدث تلقائياً مع كل مسح. النتائج السابقة لا تضمن نتائج مستقبلية.</p>`;
   $("#close").onclick = () => history.back();
@@ -1000,14 +934,6 @@ async function load(){
 }
 
 /* ---------- الأحداث ---------- */
-document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{
-  state.tf = b.dataset.tf; state.shown = PAGE;
-  document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected", String(x===b)));
-  render();
-});
-document.querySelectorAll(".counter").forEach(b=>b.onclick=()=>{
-  state.status = state.status===b.dataset.k ? null : b.dataset.k; state.shown = PAGE; render();
-});
 $("#q").addEventListener("input", e=>{ state.q = e.target.value; state.shown = PAGE; render(); });
 $("#sort").onchange = e => { state.sort = e.target.value; render(); };
 $("#favOnly").onclick = e => { state.favOnly = !state.favOnly; e.currentTarget.setAttribute("aria-pressed", state.favOnly); state.shown=PAGE; render(); };
